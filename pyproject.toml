@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "comma-post-training"
+version = "0.1.0"
+description = "A CPU-first starting point for language-model post-training research"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.6,<3",
+    "transformers>=4.57,<5",
+]
+
+[project.scripts]
+comma-train = "comma_post_training.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.14,<1",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/comma_post_training"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

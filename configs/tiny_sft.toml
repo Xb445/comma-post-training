@@ -1,0 +1,12 @@
+# Paths are relative to this file. This demo initializes a tiny model from scratch.
+data_path = "../data/examples/sft.jsonl"
+output_dir = "../outputs/tiny-sft"
+seed = 42
+max_steps = 20
+batch_size = 2
+learning_rate = 0.003
+max_length = 256
+hidden_size = 64
+num_layers = 2
+num_heads = 2
+num_threads = 2

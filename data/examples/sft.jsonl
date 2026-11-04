@@ -1,0 +1,6 @@
+{"messages":[{"role":"system","content":"请简洁回答。"},{"role":"user","content":"你好"},{"role":"assistant","content":"你好！"}]}
+{"messages":[{"role":"user","content":"1 + 1 = ?"},{"role":"assistant","content":"2"}]}
+{"messages":[{"role":"user","content":"Name a primary color."},{"role":"assistant","content":"Red."}]}
+{"messages":[{"role":"user","content":"Python 中如何输出 hello？"},{"role":"assistant","content":"print('hello')"}]}
+{"messages":[{"role":"user","content":"Translate cat to Chinese."},{"role":"assistant","content":"猫"}]}
+{"messages":[{"role":"user","content":"说一个偶数。"},{"role":"assistant","content":"2。"},{"role":"user","content":"再说一个。"},{"role":"assistant","content":"4。"}]}
