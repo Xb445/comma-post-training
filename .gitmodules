@@ -1,0 +1,20 @@
+[submodule "openpilot"]
+	path = third_party/openpilot
+	url = https://github.com/commaai/openpilot.git
+	shallow = true
+[submodule "opendbc"]
+	path = third_party/opendbc
+	url = https://github.com/commaai/opendbc.git
+	shallow = true
+[submodule "panda"]
+	path = third_party/panda
+	url = https://github.com/commaai/panda.git
+	shallow = true
+[submodule "commavq"]
+	path = third_party/commavq
+	url = https://github.com/commaai/commavq.git
+	shallow = true
+[submodule "openpilot-distill"]
+	path = third_party/openpilot.distill
+	url = https://github.com/YassineYousfi/openpilot.distill.git
+	shallow = true

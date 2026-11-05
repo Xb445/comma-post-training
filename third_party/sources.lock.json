@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-11-05",
+  "checkout_policy": "git_submodules_pinned_commits_lfs_payloads_skipped",
+  "sources": [
+    {
+      "id": "openpilot",
+      "path": "third_party/openpilot",
+      "url": "https://github.com/commaai/openpilot.git",
+      "commit": "493ae5ad0eb6f1ef4d44817749d83dc089ce0001",
+      "publisher": "commaai",
+      "classification": "official",
+      "role": "runtime_architecture_modeld_controls_replay",
+      "nested_submodules": "recursive"
+    },
+    {
+      "id": "opendbc",
+      "path": "third_party/opendbc",
+      "url": "https://github.com/commaai/opendbc.git",
+      "commit": "d1bd15ecb18e273e4af740dbbfb7def555828668",
+      "publisher": "commaai",
+      "classification": "official",
+      "role": "vehicle_interfaces_can_and_safety",
+      "nested_submodules": "none"
+    },
+    {
+      "id": "panda",
+      "path": "third_party/panda",
+      "url": "https://github.com/commaai/panda.git",
+      "commit": "16c88abdecdc0e1dc802a963da979ade4a7d966c",
+      "publisher": "commaai",
+      "classification": "official",
+      "role": "device_firmware_and_host_transport",
+      "nested_submodules": "none"
+    },
+    {
+      "id": "commavq",
+      "path": "third_party/commavq",
+      "url": "https://github.com/commaai/commavq.git",
+      "commit": "623a27f85689de4db3822cc81654cdf4db1b3da0",
+      "publisher": "commaai",
+      "classification": "official",
+      "role": "discrete_video_latents_and_autoregressive_world_model_reference",
+      "nested_submodules": "optional_model_assets"
+    },
+    {
+      "id": "openpilot-distill",
+      "path": "third_party/openpilot.distill",
+      "url": "https://github.com/YassineYousfi/openpilot.distill.git",
+      "commit": "215f33d4a860f380df4b4f4f075c6c9493f5c205",
+      "publisher": "YassineYousfi",
+      "classification": "community_research",
+      "role": "localization_distillation_and_dagger_reference",
+      "nested_submodules": "none"
+    }
+  ],
+  "optional_asset_submodules": [
+    {
+      "path": "third_party/commavq/gpt2m",
+      "url": "https://huggingface.co/commaai/commavq-gpt2m",
+      "commit": "12f0a5e31c22b492dc391aa348cbe422139e3087",
+      "role": "pretrained_GPT_checkpoint_repository",
+      "observed_status": "not_initialized_network_403"
+    }
+  ]
+}

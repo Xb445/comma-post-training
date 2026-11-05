@@ -17,5 +17,6 @@ jobs:
       - run: uv sync --locked --python 3.12
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
+      - run: uv run --locked python scripts/verify_sources.py --metadata-only
       - run: uv run --locked pytest -q
       - run: uv build

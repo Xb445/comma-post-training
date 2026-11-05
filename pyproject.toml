@@ -34,6 +34,17 @@ torch = { index = "pytorch-cpu" }
 [tool.hatch.build.targets.wheel]
 packages = ["src/comma_post_training"]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/third_party/openpilot",
+    "/third_party/opendbc",
+    "/third_party/panda",
+    "/third_party/commavq",
+    "/third_party/openpilot.distill",
+    "/datasets",
+    "/results",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
@@ -41,6 +52,7 @@ addopts = "-ra"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

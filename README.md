@@ -4,6 +4,25 @@
 DAgger 和 Residual TD3 后训练。路线分析见 [研究说明](docs/openpilot-research.md)，
 分阶段任务和验收见 [任务表](docs/tasks/openpilot.md)。
 
+## 官方源码与源码研究手册
+
+已将 openpilot、opendbc、panda、commaVQ 四个官方仓库和社区 openpilot.distill 作为固定版本
+Git 子模块克隆到 `third_party/`，并补齐 openpilot 引用的六个源码依赖。
+来源、版本和恢复方式见 [上游源码说明](third_party/README.md)。
+
+从 [源码研究手册](docs/source-study/README.md) 开始，依次阅读系统架构、modeld、世界模型、
+Rectified Flow、策略训练、残差 RL 和部署连接；[源码地图](docs/source-study/00_source_map.md)
+提供实际符号、行号与上游永久链接。六个 [实验目录](experiments/README.md) 给出实现路径和验收协议。
+
+```bash
+# 已有源码 checkout 的完整核查；新 clone 的初始化步骤见 third_party/README.md
+python scripts/verify_sources.py
+python scripts/source_map.py --check
+```
+
+commaVQ 的 HF 模型子模块 `gpt2m` 因当前网络 403 尚未取得，大模型载荷也未下载。
+源码齐备与实际编译/训练/Replay 就绪分别验证；本次只整理源码与研究路径。
+
 ## 当前可运行的驾驶研究工具
 
 ```bash
