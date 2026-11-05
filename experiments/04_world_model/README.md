@@ -1,5 +1,7 @@
 # 04 世界模型服务与动作响应
 
+> 实现状态更新：原生 Flow/Plan 与 learned latent 闭环基线已提供；官方大模型 fidelity 与服务验收仍待执行。入口见 [训练框架](../../docs/training-framework.md)。
+
 目标：跑通真实模型包的 encode/decode/predict，再验证动作对生成观测及 plan 的影响。
 配套阅读：[结构](../../docs/source-study/03_world_model_architecture.md)、
 [RF 实现设计](../../docs/source-study/04_rectified_flow.md)。

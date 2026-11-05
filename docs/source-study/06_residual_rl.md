@@ -62,7 +62,7 @@ Actor 正则化可研究 residual 大小或 `||a_t-a_(t-1)||²/dt²`，后者对
 它不是加速度二阶差分。平滑惩罚不得掩盖必要控制或改变评测分母，所有权重、单位和时间周期
 写入配置并做消融。
 
-## 拟新增模块与单独验收
+## 模块与单独验收
 
 | 模块 | 首个验收 |
 | --- | --- |
@@ -72,8 +72,10 @@ Actor 正则化可研究 residual 大小或 `||a_t-a_(t-1)||²/dt²`，后者对
 | TD3 trainer | target smoothing、延迟更新和软更新次数可复核；resume 可重复 |
 | World-model adapter | 与 DAgger 共用 reset、物理时间、动作单位和失败标准 |
 
-这些模块尚未实现，不提供指向不存在训练器的运行命令。先用小型已知动力学任务验证算法，再
-接入同一个 world-model benchmark；轻量动力学结果单独报告，不能替代 comma 世界模型结果。
+当前已在 `src/comma_post_training/simulator/` 实现原生 one-step TD3、replay、有界残差与
+环境接口，经过 CPU 合成测试，运行命令见 [训练框架](../training-framework.md)。
+n-step、仿真状态快照与在线精确续训仍是扩展项。已接通原生 learned latent 环境，仍需
+验证动力学/生成 fidelity；这些结果不能替代 comma 官方世界模型上的真实对照。
 
 ## 与监督/DAgger 的公平比较
 

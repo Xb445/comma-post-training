@@ -3,6 +3,9 @@
 本仓库提供研究工具，尚未解析原始 HEVC、Cap'n Proto 或定位 safetensors。
 以下是本项目的中间格式，不是 openpilot 原生消息格式。
 
+本文保留 segment 资产清单和轨迹评测合同。自有数据实际训练使用新的
+[episode 合同](training-data.md) 与 [训练框架](training-framework.md)，两种清单不可互换。
+
 ## 数据段清单
 
 样例见 `data/examples/driving/segments.json`。`kind=synthetic` 明确表示文件路径是示意占位，
@@ -57,4 +60,5 @@ comma-driving evaluate data/examples/driving/predictions.jsonl
 `valid` 是对应的 `[...]` 布尔 mask。Teacher 与 expert 标签均 detach，避免反向更新监督源。
 只启用 BC 或 KD 时无需提供另一种标签；有效位置为空、缺少启用的监督或权重无效时明确报错。
 动作单位与归一化必须在调用前统一。当前 helper 不包含上游图像/pose/plan 等多任务损失，
-也没有训练 runner；真实 Student 训练接入属于任务 E02。
+上游真实 Student 的接入仍属于任务 E02；新原生 policy runner 位于 `engine/trainer.py`，
+同样实现 mask BC/KD，但不替代上游完整多任务模型。

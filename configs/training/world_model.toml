@@ -1,0 +1,29 @@
+task = "world_model"
+
+[data]
+manifest = "../../data/local/own-latents/manifest.json"
+history = 4
+image_size = [16, 32]
+max_gap_s = 0.3
+
+[model]
+hidden_size = 64
+transformer_layers = 2
+heads = 4
+
+[world]
+anchor_offsets = [2, 3]
+plan_steps = 3
+sampling_steps = 8
+
+[training]
+output_dir = "../../outputs/native-world"
+max_steps = 30
+batch_size = 4
+learning_rate = 0.003
+val_every = 10
+val_batches = 0
+device = "cpu"
+
+[loss]
+plan_weight = 0.1

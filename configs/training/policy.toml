@@ -1,0 +1,27 @@
+task = "policy"
+
+[data]
+manifest = "../../data/local/own/manifest.json"
+history = 4
+image_size = [16, 32]
+max_gap_s = 0.3
+# Optional example for real/sim data: domain_mix = { real = 0.5, sim = 0.5 }
+
+[model]
+hidden_size = 64
+vision_channels = 16
+freeze_encoder = false
+
+[training]
+output_dir = "../../outputs/native-policy"
+max_steps = 30
+batch_size = 4
+learning_rate = 0.003
+val_every = 10
+val_batches = 0
+device = "cpu"
+num_workers = 0
+
+[loss]
+bc_weight = 1.0
+kd_weight = 0.0

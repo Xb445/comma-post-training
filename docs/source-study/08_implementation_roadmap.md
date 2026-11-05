@@ -1,7 +1,8 @@
 # 08 实施路线与交付检查
 
-先保持每一层的输入/输出可追溯，再扩大模型、数据和闭环长度。本次交付是源码集合、阅读文档
-和实验协议；下面明确区分已完成的源码工作与仍需执行的运行实验。
+先保持每一层的输入/输出可追溯，再扩大模型、数据和闭环长度。
+已新增 [自有数据训练框架](../training-framework.md)，具备轻量原生模型与闭环算法的 CPU
+验证；下面继续跟踪上游系统、官方资产和真实运行实验。
 
 | 阶段 | 实现路径 | 交付/验收 | 当前状态 |
 | --- | --- | --- | --- |
@@ -10,8 +11,8 @@
 | S2 模型接口 | `experiments/02_model_inference` | artifact specs、条件/缓存/动作单位、dense/streaming 对齐 | 源码分析完成，推理待模型 |
 | S3 视频压缩 | `experiments/03_video_compression` | 小样本编码/解码、重建及 latent 报告 | 待权重、数据和独立环境 |
 | S4 世界模型 | `experiments/04_world_model` | VAE round-trip、predict、动作条件响应、可重复 reset | 待 CUDA/模型包/数据 |
-| S5 策略后训练 | `experiments/05_policy_distillation` | 原样多任务基线，再 BC/KD/混合、DAgger 对照 | CPU 数学工具已具备；真实训练待接入 |
-| S6 残差 RL | `experiments/06_residual_rl` | 双 Critic、n-step、冻结/有界 residual，等预算闭环对照 | 算法与协议待实现 |
+| S5 策略后训练 | `experiments/05_policy_distillation` | 原样多任务基线，再 BC/KD/混合、DAgger 对照 | 原生基线已具备；上游真实训练待接入 |
+| S6 残差 RL | `experiments/06_residual_rl` | 双 Critic、n-step、冻结/有界 residual，等预算闭环对照 | 原生 one-step TD3 已实现；官方 recipe / n-step 对照待研究 |
 | S7 部署连接 | exporter/adapter → tinygrad → modeld → 仿真/硬件 | 数值、状态、时序、控制接口及失败场景逐层通过 | 尚未实现完整转换和部署 |
 
 ## 首先完成的三个闭环
@@ -61,6 +62,6 @@ figures/               轨迹、动作、延迟与失败样例
 
 完整的 2B/4B 世界模型训练、官方 TD3 内部 recipe、Student 的车端导出兼容性尚未取得或实现。
 本次没有安装五个仓库的全部依赖，没有执行上游 build、Replay、GPU rollout 或硬件测试。
-现有 CPU 工具的合成数据结果仍只证明合同、损失与指标实现。
+现有 CPU 合成结果验证了数据、原生模型训练/续训和闭环算法；尚不能证明真实驾驶性能。
 
 对应更细的训练任务和依赖，继续使用 [原任务表](../tasks/openpilot.md)。

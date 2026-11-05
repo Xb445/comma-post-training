@@ -1,5 +1,7 @@
 # 03 世界模型：离散视频参考与连续潜空间模拟器
 
+> 实现状态更新：已新增轻量连续 AE 与动作条件 latent 环境；官方 VAE/4B 模型接入仍按本文单独验收。入口见 [训练框架](../training-framework.md)。
+
 公开源码提供两条不同的研究入口。`third_party/commavq` 可直接阅读 CNN/VQ 压缩和自回归 GPT；
 `third_party/openpilot.distill/rl` 展示连续潜空间世界模型的加载、条件组织、图像生成和 plan 消费。
 后者调用下载的模型包，不能据此声称已取得 0.11/0.11.2 的完整内部训练仓库。

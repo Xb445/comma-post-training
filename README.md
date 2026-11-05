@@ -1,104 +1,94 @@
 # comma-post-training
 
-研究目标：基于 openpilot 教师模型进行驾驶策略蒸馏，建立 BC/KD 基线，再开展世界模型内
-DAgger 和 Residual TD3 后训练。路线分析见 [研究说明](docs/openpilot-research.md)，
-分阶段任务和验收见 [任务表](docs/tasks/openpilot.md)。
+面向自有真实/仿真驾驶数据的后训练研究框架：策略 BC/KD → 视觉压缩器 →
+Rectified Flow 世界模型与 Plan Head → DAgger / 残差 TD3。
 
-## 官方源码与源码研究手册
+已提供可运行的轻量 PyTorch 基线、统一 episode 格式、独立验证与测试、检查点续训，
+以及动作条件 learned latent 环境。实现和 CPU 测试使用合成数据；官方 openpilot Teacher、
+4B 权重、真实数据训练和 GPU 兼容性仍需独立接入与验证。
 
-已将 openpilot、opendbc、panda、commaVQ 四个官方仓库和社区 openpilot.distill 作为固定版本
-Git 子模块克隆到 `third_party/`，并补齐 openpilot 引用的六个源码依赖。
-来源、版本和恢复方式见 [上游源码说明](third_party/README.md)。
+## 从这里开始
 
-从 [源码研究手册](docs/source-study/README.md) 开始，依次阅读系统架构、modeld、世界模型、
-Rectified Flow、策略训练、残差 RL 和部署连接；[源码地图](docs/source-study/00_source_map.md)
-提供实际符号、行号与上游永久链接。六个 [实验目录](experiments/README.md) 给出实现路径和验收协议。
+- [完整训练说明](docs/training-framework.md)：模块结构、三条训练路径、命令、续训和闭环接口。
+- [自有数据接入合同](docs/training-data.md)：NPZ/NPY、图像索引、时间对齐、位姿和动作单位。
+- [训练配置](configs/training/)：policy、compressor、world_model、DAgger、TD3 和 learned 环境。
+- [源码研究手册](docs/source-study/README.md)：官方系统结构、modeld、世界模型、后训练与部署研究。
+- [任务表](docs/tasks/openpilot.md)：区分原生基线能力与上游真实复现任务。
+- [验证记录](docs/training-validation.md)：实际执行的链路、损失、闭环结果和适用范围。
 
-```bash
-# 已有源码 checkout 的完整核查；新 clone 的初始化步骤见 third_party/README.md
-python scripts/verify_sources.py
-python scripts/source_map.py --check
-```
-
-commaVQ 的 HF 模型子模块 `gpt2m` 因当前网络 403 尚未取得，大模型载荷也未下载。
-源码齐备与实际编译/训练/Replay 就绪分别验证；本次只整理源码与研究路径。
-
-## 当前可运行的驾驶研究工具
+## 最小训练示例
 
 ```bash
 cd /workspace/comma-post-training
 export UV_CACHE_DIR=/workspace/.cache/uv
 export UV_SYSTEM_CERTS=true
 uv sync --locked --python 3.12
+
+uv run --locked --offline comma-driving make-demo --output-dir data/local/demo
+uv run --locked --offline comma-driving validate-dataset data/local/demo/manifest.json
+uv run --locked --offline comma-driving train \
+  --config configs/training/policy.toml \
+  --manifest data/local/demo/manifest.json --output-dir outputs/policy
+uv run --locked --offline comma-driving evaluate-checkpoint \
+  --checkpoint outputs/policy/best.pt --split test
+```
+
+将 `--manifest` 换为自有数据即可复用训练器。数据生成和训练拒绝覆盖已有非空目录；重复运行
+请使用新目录，已有训练可用 `--resume` 接续。路径在配置内相对配置文件，在 CLI 内相对工作目录。
+完整的压缩器、latent 缓存、世界模型及闭环命令见 [训练说明](docs/training-framework.md)。
+原始数据、缓存、模型与输出请放入 `data/local/`、`datasets/`、`models/`、`outputs/` 等忽略目录。
+
+## 关键结构
+
+```text
+configs/training/                    原生离线/闭环训练配置
+src/comma_post_training/
+  data_pipeline/                     episode 校验、导入、几何、因果窗口、域采样
+  driving_policy/                    多视角 CNN + GRU + 加速度动作头
+  world_model/                       Autoencoder、latent cache、条件 Flow、Plan Head
+  engine/                            配置、损失、验证、初始化与严格离线续训
+  simulator/                         环境接口、learned 环境、DAgger、残差 TD3
+  driving/                           CLI、既有清单和轨迹指标工具
+docs/                                接入合同、训练教程、源码手册与研究路线
+third_party/                         固定版本上游源码，保持原样
+tests/                               数学/数据合同与实际 CPU 训练集成测试
+```
+
+两类闭环 backend 已提供：合成点质量环境用于算法验证；learned latent 环境以平面运动学产生
+动作条件并回灌生成图像，仍使用记录中的未来 anchors 和代理奖励。真实仿真器通过环境工厂接入，
+需要自行验证场景划分、动作响应、传感器和车辆模型；当前结果不代表驾驶泛化或车辆部署就绪。
+
+## 官方源码与既有工具
+
+`third_party/` 包含官方 openpilot、opendbc、panda、commaVQ，以及社区 openpilot.distill；
+来源与恢复方法见 [上游说明](third_party/README.md)。openpilot 六个源码依赖也已固定。
+commaVQ 的可选 HF `gpt2m` 模型子模块未下载，其他大模型/真实数据载荷也未取得。
+源码可读、模型可运行和真实训练通过分别验收。
+
+```bash
+python scripts/verify_sources.py
+python scripts/source_map.py --check
 uv run --locked --offline comma-driving validate-manifest \
   data/examples/driving/segments.json --metadata-only
 uv run --locked --offline comma-driving evaluate data/examples/driving/predictions.jsonl
+```
+
+旧清单和轨迹评测格式见 [评测合同](docs/driving-contracts.md)。初始环境保留了 `comma-train`
+文本 SFT 示例，它不训练驾驶策略，使用方法见 [环境说明](docs/environment.md)。
+
+## 验证与运行环境
+
+```bash
+uv run --locked --offline ruff check .
+uv run --locked --offline ruff format --check .
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline pytest -q
-```
-
-当前已实现 route 划分泄漏与数据文件检查、加速度 MAE/jerk/轨迹 ADE/FDE 评测、带 mask 的
-action-only BC/KD 损失。示例为**合成 fixture**，用于验证合同和数学实现。真实数据清单应省略
-`--metadata-only` 以检查文件，文件存在仍须进一步验证解码和对齐。
-
-Teacher 推理、真实 Student 训练、世界模型 rollout、DAgger 和 TD3 的接入尚未完成。
-当前云实例无 GPU，模型和真实数据未下载；目标 3090 Ti 的上游兼容性也未验证。
-固定的上游版本及资产状态见 [upstream.lock.json](configs/driving/upstream.lock.json)，
-[中间数据合同](docs/driving-contracts.md) 和 [GPU 复现准备](docs/gpu-reproduction.md) 给出后续入口。
-`configs/driving/experiments.toml` 仅登记实验矩阵，尚未连接训练器。
-
-## 原始文本 SFT 环境示例
-
-初次搭建时保留的离线文本示例，用来检查 Python/PyTorch 安装；它不训练驾驶策略。
-
-```bash
-cd /workspace/comma-post-training
-export UV_CACHE_DIR=/workspace/.cache/uv
-export UV_SYSTEM_CERTS=true
-uv sync --locked --python 3.12
-uv run --locked comma-train doctor
-uv run --locked comma-train validate-data data/examples/sft.jsonl
-uv run --locked comma-train train --config configs/tiny_sft.toml
-uv run --locked comma-train generate --checkpoint outputs/tiny-sft --prompt "你好"
-```
-
-安装基础依赖需要访问 PyPI 与 PyTorch 官方 CPU wheel 索引。下述文本示例和 CPU 测试无需模型
-下载、GPU、外部服务或 API 密钥。云环境的安装与启动细节见 [环境说明](docs/environment.md)。
-
-示例随机初始化两层 GPT-2 模型，采用固定的字节分词器，只对 assistant 回复与结束符计算
-交叉熵损失。它用于验证 SFT 工程链路；少量示例训练后的生成内容不代表真实大模型质量。
-`metrics.json` 中的初始和最终损失均来自训练集，不是独立评测结果。
-
-默认输出到 `outputs/tiny-sft/`，包含模型、分词器、训练配置和指标。为保护已有结果，训练拒绝
-写入非空输出目录。再次运行时通过 `--output-dir outputs/another-run` 选择新目录。
-配置文件中的数据和输出路径均相对于配置文件，命令行的输出路径则相对于当前目录。
-
-## 开发与验证
-
-```bash
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked pytest -q
 uv build
 ```
 
-测试覆盖聊天格式、assistant 损失掩码、变长批次，以及真实的 CPU 训练、检查点重新加载
-和生成。集成测试在临时目录中创建模型，不覆盖手动实验结果。
+测试包含实际策略/压缩器/Flow 训练、测试集评估、冻结编码器、数据缓存、精确 CPU 续训、
+learned 环境动作响应、DAgger 更新，以及 TD3 双 Critic/延迟更新/截断 bootstrap。
+依赖首次安装需要访问 PyPI / PyTorch CPU 索引；安装后原生合成链路可以离线运行。
 
-## 数据与目录
-
-每行一段完整对话，格式为 `{"messages":[{"role":"user","content":"问题"},
-{"role":"assistant","content":"回答"}]}`。允许开头有一条 system 消息，随后 user 与
-assistant 交替，最后一条必须是 assistant。输入中的控制标记保留给分词器。
-超过 `max_length` 的样本会报错，避免截断后丢失训练目标。
-
-```text
-configs/                  训练配置
-data/examples/            可提交的微型示例数据
-data/local/               本地数据（Git 忽略）
-src/comma_post_training/   数据校验、分词器、训练与 CLI
-tests/                    单元与训练集成测试
-outputs/                  检查点和指标（Git 忽略）
-```
-
-当前锁文件固定使用 CPU 版 PyTorch；上游驾驶模型训练应使用独立的 GPU 环境与锁文件。
+默认锁文件固定 CPU Torch。CUDA 原生实验与上游复现应使用独立环境，见
+[GPU 说明](docs/gpu-reproduction.md)。当前云实例无 GPU，未执行真实 Replay、CUDA 训练或硬件测试。
 本仓库尚未选择开源许可证。

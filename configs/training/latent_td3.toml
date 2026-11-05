@@ -1,0 +1,17 @@
+algorithm = "td3"
+policy_checkpoint = "../../outputs/policy/best.pt"
+output_dir = "../../outputs/latent-td3"
+steps = 100
+batch_size = 8
+warmup_steps = 8
+env_factory = "comma_post_training.simulator.latent:LatentDrivingEnvironment"
+action_low = [-3.0, -3.0]
+action_high = [3.0, 3.0]
+residual_scale = [0.5, 0.5]
+
+[env_kwargs]
+world_checkpoint = "../../outputs/world/best.pt"
+compressor_checkpoint = "../../outputs/compressor/best.pt"
+device = "cpu"
+horizon = 10
+sampling_steps = 4

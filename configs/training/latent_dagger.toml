@@ -1,0 +1,18 @@
+algorithm = "dagger"
+policy_checkpoint = "../../outputs/policy/best.pt"
+output_dir = "../../outputs/latent-dagger"
+steps = 100
+batch_size = 8
+warmup_steps = 8
+offline_fraction = 0.5
+expert_mix = 0.2
+env_factory = "comma_post_training.simulator.latent:LatentDrivingEnvironment"
+action_low = [-3.0, -3.0]
+action_high = [3.0, 3.0]
+
+[env_kwargs]
+world_checkpoint = "../../outputs/world/best.pt"
+compressor_checkpoint = "../../outputs/compressor/best.pt"
+device = "cpu"
+horizon = 10
+sampling_steps = 4

@@ -1,5 +1,7 @@
 # 05 监督蒸馏与 DAgger-style 后训练
 
+> 实现状态更新：原生 BC/KD/DAgger 已可运行；下述上游原样复现和真实驾驶对照状态分别跟踪。入口见 [训练框架](../../docs/training-framework.md)。
+
 目标：先复现上游多任务 loss，再比较 BC、KD、BC+KD 与闭环更新。
 配套阅读：[策略训练](../../docs/source-study/05_policy_training.md)。
 

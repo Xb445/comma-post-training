@@ -1,0 +1,22 @@
+task = "compressor"
+
+[data]
+manifest = "../../data/local/own/manifest.json"
+history = 1
+image_size = [16, 32]
+
+[model]
+vision_channels = 16
+latent_channels = 4
+freeze_encoder = false
+# For decoder-only adaptation, set init_checkpoint to a native compressor checkpoint
+# and freeze_encoder=true. The encoder fingerprint must remain unchanged.
+
+[training]
+output_dir = "../../outputs/native-compressor"
+max_steps = 30
+batch_size = 8
+learning_rate = 0.003
+val_every = 10
+val_batches = 0
+device = "cpu"

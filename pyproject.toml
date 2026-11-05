@@ -9,6 +9,8 @@ description = "Research tools for openpilot driving-policy distillation and post
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "numpy>=2,<3",
+    "pillow>=11,<13",
     "torch>=2.6,<3",
     "transformers>=4.57,<5",
 ]

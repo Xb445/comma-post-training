@@ -1,0 +1,19 @@
+{
+  "format": "comma-episode-v1",
+  "episode": {"id": "drive-001", "route_id": "route-001", "domain": "real", "split": "train"},
+  "coordinate_frame": "vehicle_frd",
+  "timestamp_units": "s",
+  "action_order": ["a_lat", "a_long"],
+  "action_units": "m/s^2",
+  "camera_names": ["front_narrow", "front_wide"],
+  "state_features": ["speed_mps", "yaw_rate_radps"],
+  "preprocessing_id": "your-calibrated-camera-pipeline-v1",
+  "array_keys": {
+    "timestamps": "timestamps",
+    "images": "images",
+    "ego_state": "ego_state",
+    "executed_actions": "executed_actions",
+    "expert_actions": "expert_actions",
+    "poses": "poses"
+  }
+}

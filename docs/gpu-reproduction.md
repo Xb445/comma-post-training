@@ -1,7 +1,34 @@
 # 上游 GPU 复现准备
 
-当前云环境只验证本仓库的 CPU 工具和原始文本 SFT 环境示例。
+当前云环境已验证原生策略/AE/Flow、闭环算法和原始文本 SFT 的 CPU 合成链路；没有 GPU。
 下列上游训练命令来自固定版本源码，**本次未执行**。
+
+## 自有数据原生框架的 CUDA 环境
+
+原生训练实现见 [训练框架](training-framework.md)，它与下面的上游 distill 环境分别管理。
+根目录 uv.lock 指向 CPU Torch，即使配置 `device="cuda"` 也不会替换 wheel。
+建议创建 `.venv-gpu/`，按实际 NVIDIA 驱动选择 PyTorch 官方支持的 CUDA wheel，并记录版本。
+例如下面是 Torch 2.8 / CUDA 12.8 的独立安装示例，**未在此实例执行或验证**：
+
+```bash
+uv venv --python 3.12 .venv-gpu
+uv pip install --python .venv-gpu/bin/python torch==2.8.0 \
+  --index-url https://download.pytorch.org/whl/cu128
+uv pip install --python .venv-gpu/bin/python -e .
+.venv-gpu/bin/python -c 'import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())'
+mkdir -p outputs
+uv pip freeze --python .venv-gpu/bin/python > outputs/gpu-environment.txt
+.venv-gpu/bin/comma-driving train --config configs/training/policy.toml \
+  --manifest data/local/own-v1/manifest.json --output-dir outputs/gpu-policy --device cuda
+```
+
+先建立 `outputs/` 再保存 freeze 文件。实际安装版本须与驱动兼容；用这个环境自己的 CLI，
+不要再运行根目录 `uv sync` 将其当作 CPU 环境同步。先 batch=1 做前向/反向、保存/重载和
+短训练，记录显存和数值，再扩大规模。闭环配置中的 device 和 latent 环境自己的 device
+都需要显式设置。不要同时用不同 encoder 版本的缓存和世界模型。
+
+以上安装遵循原生项目的 `torch>=2.6,<3`，不是对上游 Torch 2.13 环境的替代。
+当前没有验证 CUDA 逐位复现；跨 Torch/CUDA/源码版本改变时应 warm start 新实验。
 
 ## 环境与资产
 

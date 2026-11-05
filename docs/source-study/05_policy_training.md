@@ -1,5 +1,7 @@
 # 05 驾驶策略：监督蒸馏、DAgger 与 Near On-Policy
 
+> 实现状态更新：已新增原生 CNN/GRU 的 BC/KD、DAgger 与完整离线续训；上游多任务 Student 仍需独立复现。入口见 [训练框架](../training-framework.md)。
+
 研究入口是 `third_party/openpilot.distill/`，属于社区研究实现。
 先复现它的真实数据/模型接口，再设计受控消融；不能把这套 Student 当成车端官方模型的同一架构。
 源码定位见 [地图](00_source_map.md)。

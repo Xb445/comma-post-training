@@ -2,6 +2,23 @@
 
 状态：完成 / 待开始 / 外部前提未满足。每个任务以独立可审查改动交付，先完成依赖，再扩大数据和计算量。
 
+## 自有数据原生训练路径
+
+新的 [训练框架](../training-framework.md) 不依赖官方模型下载即可开展自有数据训练，
+格式见 [episode 合同](../training-data.md)。当前完成并用 CPU 合成数据验收：
+
+| 任务 | 当前交付 | 下一步真实实验 |
+| --- | --- | --- |
+| N01 | 版本化 episode、NPZ 导入、NPY mmap、图片索引、route 隔离与域采样 | 适配自己的原始日志，核实时间/标定/标签 |
+| N02 | 多视角 CNN/GRU 的 BC/KD、warm start、独立评估、完整离线续训 | 固定数据集上的 BC/KD/混合对照 |
+| N03 | 连续 AE、decoder 适配、冻结 encoder 缓存、指纹兼容检查 | 真实图像重建质量与容量实验 |
+| N04 | 条件 latent Flow、Plan Head、自回归预测 | 实际数据和动作条件的 fidelity 评估 |
+| N05 | 合成环境和动作条件 learned latent 环境、DAgger、残差 TD3 | 可信仿真器 adapter、专家/奖励校验及扰动基准 |
+
+上述完成表示工程链路可运行，不改变下表中官方资产、原样上游复现和真实实验的验收状态。
+
+## 上游复现与真实实验
+
 2026-11-05 已补充 [固定版本源码集合](../../third_party/README.md) 与
 [源码研究手册](../source-study/README.md)。这完成了源码阅读底座，下面的真实模型、数据与 GPU
 训练验收状态不因克隆源码而自动改变。系统/世界模型/部署的扩展路径见
@@ -25,7 +42,7 @@
 | R01 | Residual TD3 研究实现 | W02、A01 作为对照 | 冻结 base；有界残差；双 Critic、target 平滑、延迟更新、terminal/truncation 单测和稳定训练 | 待开始 |
 | E03 | 泛化与消融报告 | E02、A01、R01 | 测试集不参与选择；报告各 seed/置信区间、失败比例、数据/交互/计算预算和世界模型误差 | 待开始 |
 
-## 下一次应执行的任务：T01–T05
+## 上游复现的下一组任务：T01–T05
 
 1. 允许实际需要的下载目的地，先取得数据/模型的不可变 revision 与完整性信息，再下载最小 pilot。
 2. 检查每段 `fcamera.hevc`、`frame_info.safetensors`、`localizer.safetensors`；有 `ecamera.hevc` 时验证
@@ -33,7 +50,7 @@
 3. 取得真实的 route 分组映射。上游 loader 用 segment hash 切 val；这不证明相邻片段按 route 隔离。
    若公开段 ID 无 route 映射，明确记录限制并解决分组来源，不能编造 route_id。
 4. 按 [GPU 复现说明](../gpu-reproduction.md) 验证硬件与上游独立环境，再做 1-step 和 tiny-overfit。
-5. 在 T05 验收前不启动大规模下载、闭环 DAgger 或 TD3 训练。
+5. 上游真实闭环研究在 T05 验收后开展；本地原生合成框架可先用于算法与接口开发。
 
 ## 监督实验的固定项
 

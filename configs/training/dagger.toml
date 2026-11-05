@@ -1,0 +1,15 @@
+algorithm = "dagger"
+policy_checkpoint = "../../outputs/policy/best.pt"
+output_dir = "../../outputs/dagger"
+steps = 100
+batch_size = 8
+warmup_steps = 8
+capacity = 10000
+offline_fraction = 0.5
+expert_mix = 0.2
+env_factory = "comma_post_training.simulator.reference:ReferenceEnvironment"
+action_low = [-3.0, -3.0]
+action_high = [3.0, 3.0]
+
+[env_kwargs]
+horizon = 40

@@ -1,5 +1,7 @@
 # 03 视频压缩与 latent 研究
 
+> 实现状态更新：原生连续 AE 训练与冻结编码器缓存已提供；本实验的官方压缩器对照仍待真实资产。入口见 [训练框架](../../docs/training-framework.md)。
+
 目标：先理解 commaVQ 的离散 token，再比较连续 VAE 的接口。
 配套阅读：[世界模型结构](../../docs/source-study/03_world_model_architecture.md)。
 
