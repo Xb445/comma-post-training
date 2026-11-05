@@ -1,8 +1,10 @@
 # 开发环境
 
-当前目标是 Linux CPU 上可重复的 Python 开发、数据校验和微型 SFT 训练。
+当前环境支持 Linux CPU 上的驾驶数据合同/评测工具，以及初次搭建时的微型文本 SFT 环境示例。
 Python 使用 3.12，依赖由 `uv.lock` 固定，PyTorch 使用官方 CPU wheel。
 默认训练使用两个 CPU 线程；不需要启动数据库或 Web 服务。
+驾驶研究路线见 [研究分析](openpilot-research.md)。真实上游蒸馏、世界模型和 RL 未在本实例验证，
+需要 [独立 GPU 复现环境](gpu-reproduction.md)，不能把本页的文本训练视为驾驶训练成功。
 
 ## 云环境安装
 

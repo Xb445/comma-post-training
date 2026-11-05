@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "comma-post-training"
 version = "0.1.0"
-description = "A CPU-first starting point for language-model post-training research"
+description = "Research tools for openpilot driving-policy distillation and post-training"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 comma-train = "comma_post_training.cli:main"
+comma-driving = "comma_post_training.driving.cli:main"
 
 [dependency-groups]
 dev = [

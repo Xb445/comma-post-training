@@ -9,6 +9,9 @@ htmlcov/
 dist/
 build/
 outputs/
+models/
+checkpoints/
+wandb/
 data/local/
 .env
 .env.*

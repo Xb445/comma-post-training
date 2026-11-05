@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic",
+  "dataset": "synthetic-contract-example",
+  "dataset_revision": "fixture-v1",
+  "segments": [
+    {
+      "segment_id": "fixture-A-0",
+      "route_id": "fixture-route-A",
+      "split": "train",
+      "artifacts": {
+        "fcamera.hevc": "../../local/comma1M/data/fixture-A-0/fcamera.hevc",
+        "frame_info.safetensors": "../../local/comma1M/data/fixture-A-0/frame_info.safetensors",
+        "localizer.safetensors": "../../local/comma1M/data/fixture-A-0/localizer.safetensors"
+      }
+    },
+    {
+      "segment_id": "fixture-A-1",
+      "route_id": "fixture-route-A",
+      "split": "train",
+      "artifacts": {
+        "fcamera.hevc": "../../local/comma1M/data/fixture-A-1/fcamera.hevc",
+        "frame_info.safetensors": "../../local/comma1M/data/fixture-A-1/frame_info.safetensors",
+        "localizer.safetensors": "../../local/comma1M/data/fixture-A-1/localizer.safetensors"
+      }
+    },
+    {
+      "segment_id": "fixture-B-0",
+      "route_id": "fixture-route-B",
+      "split": "val",
+      "artifacts": {
+        "fcamera.hevc": "../../local/comma1M/data/fixture-B-0/fcamera.hevc",
+        "frame_info.safetensors": "../../local/comma1M/data/fixture-B-0/frame_info.safetensors",
+        "localizer.safetensors": "../../local/comma1M/data/fixture-B-0/localizer.safetensors"
+      }
+    },
+    {
+      "segment_id": "fixture-C-0",
+      "route_id": "fixture-route-C",
+      "split": "test",
+      "artifacts": {
+        "fcamera.hevc": "../../local/comma1M/data/fixture-C-0/fcamera.hevc",
+        "frame_info.safetensors": "../../local/comma1M/data/fixture-C-0/frame_info.safetensors",
+        "localizer.safetensors": "../../local/comma1M/data/fixture-C-0/localizer.safetensors"
+      }
+    }
+  ]
+}

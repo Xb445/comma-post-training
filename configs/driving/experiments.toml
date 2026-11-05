@@ -1,0 +1,41 @@
+# Experiment registration, not a training-runner configuration.
+schema_version = 1
+seeds = [0, 1, 2]
+split_unit = "route_id"
+action_order = ["a_lat", "a_long"]
+action_units = "m/s^2"
+coordinate_frame = "ego_at_start"
+upstream_lock = "upstream.lock.json"
+
+[[experiments]]
+id = "bc"
+stage = "supervised"
+bc_weight = 1.0
+kd_weight = 0.0
+status = "planned_real_data_required"
+
+[[experiments]]
+id = "kd"
+stage = "supervised"
+bc_weight = 0.0
+kd_weight = 1.0
+status = "planned_teacher_cache_required"
+
+[[experiments]]
+id = "bc_kd"
+stage = "supervised"
+bc_weight = 1.0
+kd_weight = 1.0
+status = "planned_shared_student_and_splits_required"
+
+[[experiments]]
+id = "dagger"
+stage = "world_model_post_training"
+parent = "bc_kd"
+status = "blocked_world_model_server_and_verified_labels_required"
+
+[[experiments]]
+id = "residual_td3"
+stage = "reinforcement_learning"
+parent = "bc_kd"
+status = "planned_requires_frozen_base_twin_critics_reward_and_closed_loop_baseline"

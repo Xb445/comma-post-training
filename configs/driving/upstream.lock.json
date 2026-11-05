@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-11-04",
+  "distill": {
+    "repository": "https://github.com/YassineYousfi/openpilot.distill",
+    "commit": "215f33d4a860f380df4b4f4f075c6c9493f5c205",
+    "python_requirement": ">=3.12.3,<3.13",
+    "torch_requirement": "2.13.0",
+    "training_device": "cuda",
+    "status": "source_reviewed_not_installed_or_trained"
+  },
+  "teacher": {
+    "repository": "https://github.com/commaai/openpilot",
+    "commit": "084747c75d2cbd23af65ab7a9e770bbd7b98bac9",
+    "artifact": "openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+    "url": "https://media.githubusercontent.com/media/commaai/openpilot/084747c75d2cbd23af65ab7a9e770bbd7b98bac9/openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+    "sha256": null,
+    "status": "required_by_distill_not_downloaded"
+  },
+  "openpilot_master_review": {
+    "commit": "070de2aefc9474a1b1cd9938939259f5764da490",
+    "purpose": "architecture_and_interface_reference_only"
+  },
+  "dataset": {
+    "repository": "https://huggingface.co/datasets/commaai/comma1M",
+    "revision": null,
+    "required_files": ["fcamera.hevc", "frame_info.safetensors", "localizer.safetensors"],
+    "optional_files": ["ecamera.hevc"],
+    "initial_pilot_segments": 2,
+    "expanded_pilot_segments": [50, 100],
+    "status": "revision_and_available_contents_unverified_network_denied"
+  },
+  "world_model": {
+    "repository": "https://huggingface.co/commaai/worldmodel-4B",
+    "revision": null,
+    "artifact": "model.fp8_nvfp4.torchpackage",
+    "sha256": null,
+    "vae_repository": "commaai/vit-ae-2x-f8c32",
+    "vae_revision": null,
+    "status": "required_by_distill_server_not_downloaded_hardware_unverified"
+  }
+}
