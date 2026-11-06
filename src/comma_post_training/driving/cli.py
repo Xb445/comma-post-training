@@ -34,7 +34,7 @@ def main() -> None:
     dataset = commands.add_parser("validate-dataset", help="validate a native training dataset")
     dataset.add_argument("path", type=Path)
     training = commands.add_parser(
-        "train", help="train native policy/compressor/latent world model"
+        "train", help="train native models or a residual head over cached frozen Teacher features"
     )
     training.add_argument("--config", type=Path, required=True)
     training.add_argument("--manifest", type=Path)

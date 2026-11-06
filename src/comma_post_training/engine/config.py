@@ -23,6 +23,7 @@ class ModelConfig:
     heads: int = 4
     freeze_encoder: bool = False
     init_checkpoint: Path | None = None
+    residual_scale: tuple[float, float] = (0.5, 0.5)
 
 
 @dataclass(frozen=True)
@@ -65,8 +66,8 @@ class RunConfig:
     world: WorldConfig = field(default_factory=WorldConfig)
 
     def __post_init__(self):
-        if self.task not in ("policy", "compressor", "world_model"):
-            raise ValueError("task must be policy, compressor, or world_model")
+        if self.task not in ("policy", "compressor", "world_model", "official_residual"):
+            raise ValueError("task must be policy, compressor, world_model, or official_residual")
         positive = [
             self.data.history,
             self.data.stride,
@@ -119,8 +120,26 @@ class RunConfig:
                 or value < 0
             ):
                 raise ValueError("loss weights and weight_decay must be finite and nonnegative")
-        if self.task == "policy" and self.loss.bc_weight + self.loss.kd_weight == 0:
+        if (
+            self.task in ("policy", "official_residual")
+            and self.loss.bc_weight + self.loss.kd_weight == 0
+        ):
             raise ValueError("policy requires BC or KD supervision")
+        if len(self.model.residual_scale) != 2 or any(
+            isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0
+            for v in self.model.residual_scale
+        ):
+            raise ValueError("residual_scale must contain two positive finite accelerations")
+        if self.task == "official_residual" and (
+            self.data.history != 1 or self.model.freeze_encoder
+        ):
+            raise ValueError(
+                "official_residual requires history=1; its official base is always frozen"
+            )
+        if self.task == "official_residual" and self.loss.bc_weight <= 0:
+            raise ValueError(
+                "official_residual requires expert BC supervision; KD alone preserves the base"
+            )
         if not isinstance(self.data.domain_mix, dict) or any(
             key not in ("real", "sim", "synthetic")
             or isinstance(value, bool)
@@ -171,7 +190,7 @@ def load_config(path: Path) -> RunConfig:
                 if not isinstance(values[key], str) or not values[key].strip():
                     raise ValueError(f"{key} must be a nonempty path")
                 values[key] = (path.parent / values[key]).resolve()
-        for key in ("image_size", "anchor_offsets"):
+        for key in ("image_size", "anchor_offsets", "residual_scale"):
             if key in values:
                 values[key] = tuple(values[key])
         try:

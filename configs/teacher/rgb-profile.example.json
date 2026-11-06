@@ -1,0 +1,11 @@
+{
+  "format": "openpilot-supercombo-rgb-v1",
+  "mode": "source_to_model_homography",
+  "calibration_id": "replace-with-your-vehicle-camera-calibration-revision",
+  "camera_mapping": {"img": "front_narrow", "big_img": "front_wide"},
+  "context_hz": 5,
+  "desire_mode": "none",
+  "traffic_convention": [1, 0],
+  "action_t_s": [0.2, 0.2],
+  "source_to_model": {"img": null, "big_img": null}
+}

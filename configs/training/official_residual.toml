@@ -1,0 +1,23 @@
+task = "official_residual"
+
+[data]
+manifest = "../../data/local/own-teacher/manifest.json"
+history = 1
+image_size = [256, 512]
+max_gap_s = 0.3
+
+[model]
+hidden_size = 64
+residual_scale = [0.5, 0.5]
+
+[training]
+output_dir = "../../outputs/official-residual"
+max_steps = 100
+batch_size = 32
+learning_rate = 0.001
+val_every = 20
+device = "cpu"
+
+[loss]
+bc_weight = 1.0
+kd_weight = 0.1

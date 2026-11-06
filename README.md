@@ -1,14 +1,15 @@
 # comma-post-training
 
-面向自有真实/仿真驾驶数据的后训练研究框架：策略 BC/KD → 视觉压缩器 →
-Rectified Flow 世界模型与 Plan Head → DAgger / 残差 TD3。
+当前主线：**官方驾驶 Teacher 推理 → 冻结官方基座 → 用自有数据训练附加残差头**。
+世界模型适配训练留待资源就绪后开展。既有原生策略/AE/Flow、DAgger/TD3 保留为研究基线。
 
-已提供可运行的轻量 PyTorch 基线、统一 episode 格式、独立验证与测试、检查点续训，
-以及动作条件 learned latent 环境。实现和 CPU 测试使用合成数据；官方 openpilot Teacher、
-4B 权重、真实数据训练和 GPU 兼容性仍需独立接入与验证。
+已实现固定版本 ONNX Teacher adapter、显式 RGB 标定、状态队列、特征/动作缓存、
+冻结基座残差 SFT 与组合推理接口。官方权重身份已核实，但实际下载仍被网络 403 阻塞，
+当前新链路只通过合成 ONNX 测试，尚不能声称真实官方推理已验收。
 
 ## 从这里开始
 
+- [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。
 - [完整训练说明](docs/training-framework.md)：模块结构、三条训练路径、命令、续训和闭环接口。
 - [自有数据接入合同](docs/training-data.md)：NPZ/NPY、图像索引、时间对齐、位姿和动作单位。
 - [训练配置](configs/training/)：policy、compressor、world_model、DAgger、TD3 和 learned 环境。
@@ -18,11 +19,13 @@ Rectified Flow 世界模型与 Plan Head → DAgger / 残差 TD3。
 
 ## 最小训练示例
 
+下述例子是原生小模型工程验证；官方基座流程使用上面的 `comma-teacher` 指南。
+
 ```bash
 cd /workspace/comma-post-training
 export UV_CACHE_DIR=/workspace/.cache/uv
 export UV_SYSTEM_CERTS=true
-uv sync --locked --python 3.12
+uv sync --locked --extra teacher --python 3.12
 
 uv run --locked --offline comma-driving make-demo --output-dir data/local/demo
 uv run --locked --offline comma-driving validate-dataset data/local/demo/manifest.json
@@ -47,6 +50,7 @@ src/comma_post_training/
   driving_policy/                    多视角 CNN + GRU + 加速度动作头
   world_model/                       Autoencoder、latent cache、条件 Flow、Plan Head
   engine/                            配置、损失、验证、初始化与严格离线续训
+  teacher/                           官方权重校验、ONNX 流式推理、缓存与残差头
   simulator/                         环境接口、learned 环境、DAgger、残差 TD3
   driving/                           CLI、既有清单和轨迹指标工具
 docs/                                接入合同、训练教程、源码手册与研究路线
@@ -79,9 +83,9 @@ uv run --locked --offline comma-driving evaluate data/examples/driving/predictio
 ## 验证与运行环境
 
 ```bash
-uv run --locked --offline ruff check .
-uv run --locked --offline ruff format --check .
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline pytest -q
+uv run --locked --offline --extra teacher ruff check .
+uv run --locked --offline --extra teacher ruff format --check .
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline --extra teacher pytest -q
 uv build
 ```
 

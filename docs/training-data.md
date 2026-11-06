@@ -87,6 +87,9 @@ episode id 只能包含字母数字、点、下划线和连字符，且以字母
 | `commanded_actions` | `[N,2]`，可选 | 发给控制/执行器的加速度指令，独立保存用于诊断 |
 | `expert_actions` | `[N,2]`，BC 需要 | 在观测 t 上由专家给出的监督动作 |
 | `teacher_actions` | `[N,2]`，KD 需要 | 匹配预处理/历史状态的 Teacher 动作 |
+| `teacher_features` | `[N,F]`，官方残差任务需要 | `comma-teacher cache` 产生的冻结基座特征；必须带 teacher_identity |
+| `teacher_desire` | `[N,8]`，可选 | one-hot 意图状态；Teacher adapter 计算上升沿脉冲 |
+| `teacher_traffic` / `teacher_action_t` | `[N,2]`，可选 | 逐帧通行侧 one-hot / 横纵向动作延迟秒数 |
 | `expert_valid` / `teacher_valid` | `[N] bool`，可选 | 对应标签存在且有效；未给 mask 时该源全部有效 |
 | `valid` | `[N] bool`，可选 | 传感器同步、状态等整体有效区间，未给时全部有效 |
 | `poses` | `[N,4,4]`，世界模型需要 | `T_world_from_vehicle(t)`，米制平移、右手正交旋转 |

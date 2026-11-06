@@ -14,8 +14,10 @@
     "commit": "084747c75d2cbd23af65ab7a9e770bbd7b98bac9",
     "artifact": "openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
     "url": "https://media.githubusercontent.com/media/commaai/openpilot/084747c75d2cbd23af65ab7a9e770bbd7b98bac9/openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
-    "sha256": null,
-    "status": "required_by_distill_not_downloaded"
+    "sha256": "a501760a9d1d5fef0eab2b8c5d122d06124fc26dc8e0782e0aa94b82a208f0ff",
+    "status": "lfs_identity_verified_weights_not_downloaded_http_403",
+    "size_bytes": 1757355221,
+    "identity_verified_date": "2026-11-06"
   },
   "openpilot_master_review": {
     "commit": "070de2aefc9474a1b1cd9938939259f5764da490",
@@ -24,10 +26,19 @@
   "dataset": {
     "repository": "https://huggingface.co/datasets/commaai/comma1M",
     "revision": null,
-    "required_files": ["fcamera.hevc", "frame_info.safetensors", "localizer.safetensors"],
-    "optional_files": ["ecamera.hevc"],
+    "required_files": [
+      "fcamera.hevc",
+      "frame_info.safetensors",
+      "localizer.safetensors"
+    ],
+    "optional_files": [
+      "ecamera.hevc"
+    ],
     "initial_pilot_segments": 2,
-    "expanded_pilot_segments": [50, 100],
+    "expanded_pilot_segments": [
+      50,
+      100
+    ],
     "status": "revision_and_available_contents_unverified_network_denied"
   },
   "world_model": {

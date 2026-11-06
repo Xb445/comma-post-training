@@ -55,7 +55,14 @@ def staged_directory(destination: Path):
 def source_fingerprint() -> str:
     root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256()
-    for directory in ("data_pipeline", "engine", "driving_policy", "world_model", "simulator"):
+    for directory in (
+        "data_pipeline",
+        "engine",
+        "driving_policy",
+        "world_model",
+        "simulator",
+        "teacher",
+    ):
         for path in sorted((root / directory).rglob("*.py")):
             digest.update(str(path.relative_to(root)).encode())
             digest.update(path.read_bytes())

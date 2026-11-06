@@ -143,6 +143,25 @@ class Episode:
                 raise ValueError("latent arrays require an encoder_fingerprint")
             if self.array("latents").ndim < 2:
                 raise ValueError("latents must have shape [N,*latent_shape]")
+        if "teacher_features" in self.paths:
+            identity = self.metadata.get("teacher_identity", {})
+            features = self.array("teacher_features")
+            if "teacher_actions" not in self.paths or "teacher_valid" not in self.paths:
+                raise ValueError(
+                    "frozen Teacher features require explicit actions and validity masks"
+                )
+            if identity.get("kind") not in ("official", "synthetic_fixture") or not re.fullmatch(
+                r"[0-9a-f]{64}", identity.get("sha256", "")
+            ):
+                raise ValueError("Teacher features require their weight identity and source kind")
+            if (
+                features.ndim != 2
+                or features.shape[1] < 1
+                or features.shape[1] != identity.get("feature_dim")
+            ):
+                raise ValueError("teacher_features shape must match the recorded feature_dim")
+            if not np.isfinite(features[self.array("teacher_valid")]).all():
+                raise ValueError("nonfinite active Teacher features")
         return n
 
     def images(self, indices: list[int], size: tuple[int, int]) -> np.ndarray:
@@ -240,6 +259,8 @@ class Catalogue:
                     "coordinate_frame",
                 )
             }
+            if "teacher_features" in episode.paths:
+                current["teacher_identity"] = episode.metadata["teacher_identity"]
             if signature is not None and signature != current:
                 raise ValueError("episodes have incompatible camera/state/preprocessing contracts")
             signature = current

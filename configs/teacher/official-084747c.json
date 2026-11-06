@@ -1,0 +1,14 @@
+{
+  "repository": "commaai/openpilot",
+  "commit": "084747c75d2cbd23af65ab7a9e770bbd7b98bac9",
+  "artifact": "openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+  "sha256": "a501760a9d1d5fef0eab2b8c5d122d06124fc26dc8e0782e0aa94b82a208f0ff",
+  "size_bytes": 1757355221,
+  "identity_source": "Git LFS pointer in the pinned official Git commit",
+  "pointer_url": "https://raw.githubusercontent.com/commaai/openpilot/084747c75d2cbd23af65ab7a9e770bbd7b98bac9/openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+  "weights_url": "https://media.githubusercontent.com/media/commaai/openpilot/084747c75d2cbd23af65ab7a9e770bbd7b98bac9/openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+  "inference_runtime": "onnxruntime",
+  "weights_status": "not_downloaded_network_policy_http_403",
+  "real_inference_status": "not_executed",
+  "post_training": "frozen_official_base_with_bounded_residual_head"
+}

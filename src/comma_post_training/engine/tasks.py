@@ -4,6 +4,7 @@ import torch
 
 from comma_post_training.driving_policy.model import DrivingPolicy
 from comma_post_training.engine.config import RunConfig
+from comma_post_training.teacher.residual import OfficialResidualPolicy
 from comma_post_training.world_model.compressor import Compressor
 from comma_post_training.world_model.flow import LatentFlow
 
@@ -31,11 +32,22 @@ def build_spec(config: RunConfig, signature: dict, dataset) -> dict:
             transformer_layers=config.model.transformer_layers,
             anchor_offsets=list(config.world.anchor_offsets),
         )
+    if config.task == "official_residual":
+        spec.update(
+            teacher_identity=dataset.teacher_identity,
+            teacher_feature_dim=dataset.teacher_feature_dim,
+            residual_scale=list(config.model.residual_scale),
+        )
     return spec
 
 
 def build_model(spec: dict):
-    classes = {"policy": DrivingPolicy, "compressor": Compressor, "world_model": LatentFlow}
+    classes = {
+        "policy": DrivingPolicy,
+        "compressor": Compressor,
+        "world_model": LatentFlow,
+        "official_residual": OfficialResidualPolicy,
+    }
     if spec.get("kind") not in classes:
         raise ValueError("unknown checkpoint model kind")
     return classes[spec["kind"]](spec)
@@ -43,6 +55,15 @@ def build_model(spec: dict):
 
 def architecture(spec: dict) -> dict:
     keys = {
+        "official_residual": (
+            "teacher_identity",
+            "teacher_feature_dim",
+            "state_dim",
+            "state_features",
+            "hidden_size",
+            "residual_scale",
+            "history",
+        ),
         "policy": (
             "cameras",
             "camera_names",
@@ -77,7 +98,7 @@ def architecture(spec: dict) -> dict:
 def task_loss(model, batch: dict, config: RunConfig) -> tuple[torch.Tensor, dict]:
     """Return a training scalar and per-example metrics with explicit validity masks."""
     metrics = {}
-    if config.task == "policy":
+    if config.task in ("policy", "official_residual"):
         prediction = model(batch)
         loss = prediction.sum() * 0.0
         for source, weight in (
@@ -112,7 +133,7 @@ def task_loss(model, batch: dict, config: RunConfig) -> tuple[torch.Tensor, dict
 
 
 def metric_objective(metrics: dict[str, float], config: RunConfig) -> float:
-    if config.task == "policy":
+    if config.task in ("policy", "official_residual"):
         result = 0.0
         for name, weight in (
             ("expert_mse", config.loss.bc_weight),

@@ -5,6 +5,10 @@
 入口为 `comma-driving`；本项目的可训练实现位于 `src/comma_post_training/`，
 `third_party/` 保持固定版本、原样存放，作为上游接入与源码研究依据。
 
+当前研究优先级已调整为 [官方 Teacher 与冻结基座后训练](official-teacher-first.md)。
+本文保留原生轻量基线及其世界模型研究路线；官方模型接口使用独立 `teacher/` 模块，
+世界模型适配和官方基座上的闭环 RL 留待后续资源就绪。
+
 ## 当前能力与边界
 
 | 模块 | 已实现并在 CPU 合成数据验证 | 自有数据接入时需要提供 |
@@ -19,9 +23,9 @@
 | 训练工程 | 配置检查、独立验证/测试、原子检查点、确定性采样、严格离线续训 | 数据版本、预处理版本、实验预算 |
 
 这些是本项目新建的轻量原生基线。它们不加载 comma 官方 4B 权重，也不等于复现完整的
-openpilot 训练流水线。当前没有实现 ONNX Teacher 自动标签生成、官方模型参数映射、LoRA、
-多卡训练、生产级视频流 loader 或 modeld 部署转换。已有 Teacher 输出可作为 `teacher_actions`
-导入；自己的原生 checkpoint 可用于初始化后继续适配。
+openpilot 训练流水线。ONNX Teacher 的流式标签/特征缓存与冻结基座 residual head 已在
+新模块实现，实际官方权重验收尚受下载 403 阻塞。官方模型参数映射、LoRA、多卡训练、
+生产级视频流 loader 和 modeld 部署转换仍未实现。
 
 ## 一、整体结构
 

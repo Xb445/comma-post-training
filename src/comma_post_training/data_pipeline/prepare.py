@@ -22,6 +22,10 @@ ARRAYS = {
     "valid",
     "expert_valid",
     "teacher_valid",
+    "teacher_features",
+    "teacher_desire",
+    "teacher_traffic",
+    "teacher_action_t",
     "latents",
 }
 

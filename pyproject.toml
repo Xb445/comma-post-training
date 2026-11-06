@@ -15,9 +15,17 @@ dependencies = [
     "transformers>=4.57,<5",
 ]
 
+[project.optional-dependencies]
+teacher = [
+    "onnx>=1.17,<2",
+    "onnxruntime>=1.20,<2",
+    "opencv-python-headless>=4.10,<5",
+]
+
 [project.scripts]
 comma-train = "comma_post_training.cli:main"
 comma-driving = "comma_post_training.driving.cli:main"
+comma-teacher = "comma_post_training.teacher.cli:main"
 
 [dependency-groups]
 dev = [

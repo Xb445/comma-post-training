@@ -44,6 +44,8 @@ class EpisodeWindows(Dataset):
         self.domain_ends: dict[str, list[int]] = {}
         self.encoder_fingerprint = None
         self.latent_shape = None
+        self.teacher_identity = None
+        self.teacher_feature_dim = None
         if task == "compressor":
             self.history = 1
         future = max(1, plan_steps, *anchors) if task == "world_model" else 0
@@ -55,12 +57,19 @@ class EpisodeWindows(Dataset):
             times = episode.array("timestamps")
             valid = episode.array("valid") if "valid" in episode.paths else np.ones(n, dtype=bool)
             target_valid = np.ones(n, dtype=bool)
-            if task == "policy":
+            if task in ("policy", "official_residual"):
                 target_valid[:] = False
                 for source in supervision:
                     if source + "_actions" in episode.paths:
                         mask = source + "_valid"
                         target_valid |= episode.array(mask) if mask in episode.paths else True
+            if task == "official_residual":
+                features = episode.array("teacher_features")
+                identity = episode.metadata["teacher_identity"]
+                if self.teacher_identity is not None and identity != self.teacher_identity:
+                    raise ValueError("residual windows cannot mix Teacher models or adapters")
+                self.teacher_identity, self.teacher_feature_dim = identity, features.shape[1]
+                target_valid &= episode.array("teacher_valid")
             if task == "world_model":
                 latent = episode.array("latents")
                 episode.array("poses")
@@ -154,7 +163,7 @@ class EpisodeWindows(Dataset):
         }
         if self.task in ("compressor", "policy"):
             result["images"] = torch.from_numpy(episode.images(history, self.image_size))
-        if self.task == "policy":
+        if self.task in ("policy", "official_residual"):
             past = np.zeros((self.history, 2), dtype=np.float32)
             for i, frame in enumerate(history):
                 if frame > span.run_start:
@@ -177,6 +186,10 @@ class EpisodeWindows(Dataset):
                 values = episode.array(label)[t] if active else np.zeros(2)
                 result[source] = torch.tensor(np.array(values), dtype=torch.float32)
                 result[source + "_valid"] = torch.tensor(active)
+            if self.task == "official_residual":
+                result["teacher_features"] = torch.tensor(
+                    np.array(episode.array("teacher_features")[t]), dtype=torch.float32
+                )
         if self.task == "world_model":
             latents, poses = episode.array("latents"), episode.array("poses")
             anchor_indices = [t + offset for offset in self.anchors]

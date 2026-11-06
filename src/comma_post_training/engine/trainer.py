@@ -180,7 +180,7 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
     quality = catalogue.validate()
     training = make_windows(config, catalogue, "train")
     validation = make_windows(config, catalogue, "val")
-    if config.task == "policy":
+    if config.task in ("policy", "official_residual"):
         counts = training.label_counts(set(config.data.domain_mix) or None)
         for source, weight in (
             ("expert", config.loss.bc_weight),
@@ -188,6 +188,11 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
         ):
             if weight and not counts[source]:
                 raise ValueError(f"no active training labels for {source} in sampled domains")
+    if (
+        config.task == "official_residual"
+        and training.teacher_identity != validation.teacher_identity
+    ):
+        raise ValueError("train/val must use the same frozen Teacher identity")
     if config.task == "world_model" and (
         training.latent_shape != validation.latent_shape
         or training.encoder_fingerprint != validation.encoder_fingerprint
@@ -340,6 +345,13 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
         "checkpoint": str(output / "last.pt"),
         "source_domains": sorted(training.domain_ends),
     }
+    if config.task == "official_residual":
+        report.update(
+            teacher_identity=training.teacher_identity,
+            base_frozen=True,
+            post_training_mode="offline_supervised_residual",
+            trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
+        )
     atomic_json(output / "metrics.json", report)
     return report
 
@@ -400,6 +412,8 @@ def config_from_dict(document: dict) -> RunConfig:
     data["image_size"] = tuple(data["image_size"])
     if model["init_checkpoint"]:
         model["init_checkpoint"] = Path(model["init_checkpoint"])
+    if "residual_scale" in model:
+        model["residual_scale"] = tuple(model["residual_scale"])
     world = dict(document["world"])
     world["anchor_offsets"] = tuple(world["anchor_offsets"])
     return RunConfig(
