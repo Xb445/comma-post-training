@@ -1,0 +1,10 @@
+{
+  "origin": "user_supplied_nvidia_smi",
+  "reported_at": "2026-11-06 15:31:57 local time",
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "driver": "580.178.04",
+  "driver_advertised_max_cuda": "13.0",
+  "total_vram_mib": 24576,
+  "desktop_snapshot_used_vram_mib": 885,
+  "teacher_peak_vram_measured": false
+}

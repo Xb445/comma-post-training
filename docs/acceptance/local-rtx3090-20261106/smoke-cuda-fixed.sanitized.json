@@ -1,0 +1,144 @@
+{
+  "teacher": {
+    "model": "<local-checkout>/models/big_driving_supercombo.onnx",
+    "verified": true,
+    "kind": "official",
+    "commit": "084747c75d2cbd23af65ab7a9e770bbd7b98bac9",
+    "sha256": "a501760a9d1d5fef0eab2b8c5d122d06124fc26dc8e0782e0aa94b82a208f0ff",
+    "size": 1757355221,
+    "url": "https://media.githubusercontent.com/media/commaai/openpilot/084747c75d2cbd23af65ab7a9e770bbd7b98bac9/openpilot/selfdrive/modeld/models/big_driving_supercombo.onnx",
+    "adapter_version": "supercombo-084747-stream-5hz-v1",
+    "providers": [
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "input_shapes": {
+      "img": [
+        1,
+        12,
+        128,
+        256
+      ],
+      "big_img": [
+        1,
+        12,
+        128,
+        256
+      ],
+      "desire_pulse": [
+        1,
+        25,
+        8
+      ],
+      "traffic_convention": [
+        1,
+        2
+      ],
+      "action_t": [
+        1,
+        2
+      ],
+      "features_buffer": [
+        1,
+        24,
+        512
+      ]
+    },
+    "input_dtypes": {
+      "img": "uint8",
+      "big_img": "uint8",
+      "desire_pulse": "float16",
+      "traffic_convention": "float16",
+      "action_t": "float16",
+      "features_buffer": "float16"
+    },
+    "feature_dim": 512,
+    "context_hz": 5,
+    "warmup_frames": 25,
+    "action_semantics": "unsmoothed_network_a_lat_a_long_mps2",
+    "output_slices": {
+      "lane_lines": [
+        0,
+        528
+      ],
+      "lane_lines_prob": [
+        528,
+        536
+      ],
+      "road_edges": [
+        536,
+        800
+      ],
+      "meta": [
+        800,
+        855
+      ],
+      "desire_pred": [
+        855,
+        887
+      ],
+      "pose": [
+        887,
+        899
+      ],
+      "wide_from_device_euler": [
+        899,
+        905
+      ],
+      "road_transform": [
+        905,
+        917
+      ],
+      "plan": [
+        917,
+        1907
+      ],
+      "lead": [
+        1907,
+        2051
+      ],
+      "lead_prob": [
+        2051,
+        2054
+      ],
+      "desire_state": [
+        2054,
+        2062
+      ],
+      "action": [
+        2062,
+        2066
+      ],
+      "hidden_state": [
+        2066,
+        2578
+      ],
+      "pad": [
+        -2,
+        null
+      ]
+    }
+  },
+  "input_kind": "synthetic_black_calibrated_model_space_rgb",
+  "frames": 2,
+  "reset_reproducible": true,
+  "actions": [
+    [
+      -0.01629638671875,
+      -0.289794921875
+    ],
+    [
+      -0.468017578125,
+      0.37744140625
+    ]
+  ],
+  "warmed": [
+    false,
+    false
+  ],
+  "latency_ms": [
+    12487.806652992731,
+    8.881436981027946
+  ],
+  "real_driving_validation": false
+}

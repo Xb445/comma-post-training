@@ -1,7 +1,8 @@
 # 官方驾驶基座优先：Teacher 推理与冻结基座后训练
 
 当前研究顺序调整为：**固定官方驾驶模型 → Teacher 推理 → 自有数据上的冻结基座残差训练**。
-世界模型适配、世界模型中的 DAgger / RL 留待资源与数据就绪后开展。
+已实现仿真环境内的实时官方基座 DAgger / TD3；官方世界模型适配留待资源与数据就绪后开展。
+阶段命令、数据合同和代码结构见 [P0–P4 操作手册](official-sim-post-training.md)。
 此前的原生 CNN/GRU、AE、Flow 继续作为工程测试与算法基线，不能代替官方基座验收。
 
 用户已选择：保留官方模型参数，训练附加策略/残差头。这里不会把 Student 蒸馏解释成
@@ -12,18 +13,20 @@
 | 项目 | 状态 |
 | --- | --- |
 | 官方权重身份 | 已从固定 Git 提交中的 LFS 指针取得 SHA256、大小 |
-| 权重下载 | 当前网络访问 media.githubusercontent.com 返回 HTTP 403；未取得权重 |
+| 权重下载 | 用户本地已取得并通过 SHA 校验；云端仍无权重，媒体域名访问曾返回 403 |
 | ONNX Runtime / RGB 依赖 | 已安装，支持 CPU 接口开发与测试 |
-| 原始 ONNX 流式 adapter | 已实现；未改写网络图；待真实官方权重验证 |
+| 原始 ONNX 流式 adapter | v2 支持真实 raw action 宽度 4 和负边界 slice；待本地重跑 |
 | 相机/状态预处理 | 已实现显式标定 RGB 入口、YUV420 平面打包、5 Hz 队列与 reset |
 | Teacher 缓存 | 已实现动作/特征/有效帧派生数据集，保留模型与预处理来源 |
 | 冻结基座残差 SFT | 已实现，只有附加 head 参与优化 |
 | 组合推理 | 已实现实时 Teacher + residual head，检查基座身份 |
-| 现有验证 | 合成 ONNX 接口测试；不代表官方模型或真实驾驶数据已验证 |
+| 仿真录制 | 独立双视角 pinhole、5 Hz、专家/实际动作、位姿、分组与诊断图 |
+| 官方基座闭环 | 独立 train-official：DAgger / 冻结 SFT anchor 的 residual TD3，默认要求 Gate 2 |
+| 现有验证 | 用户本地两帧官方黑图 smoke；云端 115 项测试，不代表真实驾驶或效果验收 |
 
-当前仅为权重下载准备了增加 `media.githubusercontent.com` 的环境网络草稿，未应用、未发布。
-需要在环境设置中审阅保存并发布后，再执行下载和真实推理；不需要为公开权重提供 API 密钥。
-世界模型/Hugging Face 域名不属于本阶段新增网络要求。
+用户本地的四份 GPU 日志已按 [验收记录](acceptance/local-rtx3090-20261106/README.md) 保存摘要与原始哈希。
+日志对应用户修复的 v1 adapter；本次 v2 增加完整序列重放、warmup 后延迟统计和 ORT 节点 profiling。
+请使用同一官方权重重新运行 P0；模型不需要上传 GitHub。云环境配置未发布或修改。
 
 ## 一、模型版本与证据
 
@@ -195,8 +198,9 @@ uv run --locked --offline --extra teacher comma-driving evaluate-checkpoint \
 不会再次打包 1.76 GB 权重。数据版本、Teacher 身份变化都不能当作精确续训；可在兼容条件下
 用 `--init-checkpoint` 开新的适配实验。正常 `--resume` 规则见原生训练说明。
 
-这一步实现**离线监督残差后训练**。当前没有将官方 ONNX base 接入原生 TD3/DAgger runner，
-没有实现在线精确续训，也没有更新官方原参数。涉及世界模型和 RL 的适配属于后续阶段。
+这一步实现**离线监督残差后训练**。实时官方基座另通过 `teacher/policy.py` 和
+`simulator/official_runner.py` 接入仿真 DAgger/TD3，命令见 [P3](official-sim-post-training.md)。
+在线精确续训尚未实现；官方原参数始终冻结。官方世界模型适配仍属后续阶段。
 
 ## 六、真实组合推理与评价
 
@@ -221,9 +225,10 @@ uv run --locked --offline --extra teacher comma-teacher predict-adapted \
 5. 固定多个 seed/场景和修正范围，检查各场景收益及退化；不只依据训练 loss 判断改善。
 6. 算力与数据支持后，再接入官方 VAE/世界模型并开展闭环后训练。
 
-目前第 1 步仍被真实的网络 403 阻塞，因此不能把合成接口测试通过写成“官方模型复现完成”。
+用户本地已完成权重身份与初步两帧推理，下一步是 v2 的完整 warmup smoke、
+仿真 episode 与 P2 对照；在可信标定驾驶片段上仍需完成第 3 步。
 
-## 本次验证记录（2026-11-06）
+## 历史云端验证记录（2026-11-06）
 
 在无 GPU 的当前云实例安装并使用 ONNX 1.23.2、ONNX Runtime 1.31.1 CPU、OpenCV 4.14。
 全部 86 项测试通过，其中 11 项为新增 Teacher 接口与残差训练集成测试。
@@ -233,5 +238,13 @@ uv run --locked --offline --extra teacher comma-teacher predict-adapted \
 完整分段续训逐参数一致，以及实时 Teacher + residual 的预测和身份不匹配拒绝。
 
 CLI 拒绝将微型测试图当作官方模型。依赖、CLI 入口、Ruff、包构建、源码版本与链接检查
-分别执行；它们不替代真实官方网络的验收。官方权重执行次数仍为 0，真实驾驶数据测试仍为 0。
+分别执行；它们不替代真实官方网络的验收。当时云端官方权重执行次数为 0，真实驾驶数据测试为 0。
 当前 runtime 网络策略尚未包含媒体域名，已保存的网络草稿没有改变该事实。
+
+## 当前验证（2026-11-09）
+
+115 项测试通过，包括 23 项 Teacher 测试与 17 项新增仿真/在线集成测试。
+合成 ONNX 重现真实输入尺寸、FP16 controls、4 通道 raw action、512 维特征和尾部 padding。
+测试覆盖两路独立图像、动作改变观测、5 Hz 录制与最终观测、源数据不修改、零残差等于基座、
+逐 route 指标、Gate 2、DAgger 当前状态专家标签、Teacher 不跨 episode、TD3 正确 next base、
+冻结离线 head 以及组合策略重载。当前云端仍未执行官方权重或 CUDA 训练。

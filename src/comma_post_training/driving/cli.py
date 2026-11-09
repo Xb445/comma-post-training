@@ -21,6 +21,33 @@ def main() -> None:
     demo = commands.add_parser("make-demo", help="generate an explicitly synthetic episode dataset")
     demo.add_argument("--output-dir", type=Path, required=True)
     demo.add_argument("--frames", type=int, default=24)
+    recorded = commands.add_parser(
+        "record-sim", help="record calibrated simulator episodes at 5 Hz"
+    )
+    recorded.add_argument("--output-dir", type=Path, required=True)
+    recorded.add_argument(
+        "--factory", default="comma_post_training.simulator.recording:RoadEnvironment"
+    )
+    recorded.add_argument("--duration-s", type=float, default=30)
+    recorded.add_argument("--seed", type=int, default=42)
+    recorded.add_argument("--train-routes", type=int, default=2)
+    recorded.add_argument("--val-routes", type=int, default=1)
+    recorded.add_argument("--test-routes", type=int, default=1)
+    recorded.add_argument("--env-kwargs", type=Path, help="JSON factory arguments")
+    for name in ("train-official", "evaluate-official"):
+        official = commands.add_parser(name, help="live frozen official Teacher with DAgger or TD3")
+        official.add_argument("--config", type=Path, required=True)
+        if name == "train-official":
+            official.add_argument("--steps", type=int)
+            official.add_argument("--output-dir", type=Path)
+            official.add_argument(
+                "--engineering-only",
+                action="store_true",
+                help="explicitly bypass Gate 2 for plumbing tests, never a performance acceptance",
+            )
+        else:
+            official.add_argument("--checkpoint", type=Path)
+            official.add_argument("--split", choices=("val", "test"), default="test")
     imported = commands.add_parser(
         "import-npz", help="import already aligned numeric episode arrays"
     )
@@ -91,6 +118,42 @@ def main() -> None:
                 "manifest": str(create_demo(args.output_dir, frames=args.frames)),
                 "kind": "synthetic",
             }
+        elif args.command == "record-sim":
+            from comma_post_training.simulator.recorder import record_simulation
+
+            result = record_simulation(
+                args.output_dir,
+                factory=args.factory,
+                duration_s=args.duration_s,
+                seed=args.seed,
+                routes_per_split={
+                    "train": args.train_routes,
+                    "val": args.val_routes,
+                    "test": args.test_routes,
+                },
+                env_kwargs=json.loads(args.env_kwargs.read_text()) if args.env_kwargs else None,
+            )
+        elif args.command in ("train-official", "evaluate-official"):
+            from dataclasses import replace
+
+            from comma_post_training.simulator.official_runner import (
+                evaluate_official_closed_loop,
+                load_official_config,
+                train_official_closed_loop,
+            )
+
+            config = load_official_config(args.config)
+            if args.command == "train-official":
+                changes = {}
+                if args.steps is not None:
+                    changes["steps"] = args.steps
+                if args.output_dir:
+                    changes["output_dir"] = args.output_dir.resolve()
+                if args.engineering_only:
+                    changes["engineering_only"] = True
+                result = train_official_closed_loop(replace(config, **changes))
+            else:
+                result = evaluate_official_closed_loop(config, args.checkpoint, split=args.split)
         elif args.command == "validate-dataset":
             from comma_post_training.data_pipeline.episodes import Catalogue
 

@@ -1,0 +1,243 @@
+{
+  "format": "comma-cloud-engineering-acceptance-v1",
+  "date": "2026-11-09",
+  "scope": "CPU synthetic ONNX interface and training engineering; no official weights, CUDA or driving-quality claim",
+  "teacher_identity": {
+    "kind": "synthetic_fixture",
+    "commit": "local-test-graph",
+    "sha256": "f287db678a3f67c1050aea9b02ef842f8b2ca9981283b9e9c3f91d2d8ddd628c",
+    "adapter_version": "supercombo-084747-stream-5hz-v2",
+    "feature_dim": 512,
+    "action_semantics": "unsmoothed_network_a_lat_a_long_mps2",
+    "action_layout": {
+      "raw_width": 4,
+      "mean_indices": [
+        0,
+        1
+      ],
+      "auxiliary_indices": [
+        2,
+        3
+      ],
+      "auxiliary_semantics": "not_used_for_control"
+    }
+  },
+  "versions": {
+    "torch": "2.15.0+cpu",
+    "numpy": "2.5.4",
+    "onnx": "1.23.2",
+    "onnxruntime": "1.31.1",
+    "opencv-python-headless": "4.14.0.94"
+  },
+  "recording": {
+    "manifest": "data/local/acceptance-sim-pilot-20261109/manifest.json",
+    "factory": "comma_post_training.simulator.recording:RoadEnvironment",
+    "duration_s": 30.0,
+    "sample_hz": 5,
+    "dataset_kind": "synthetic",
+    "episodes": [
+      {
+        "id": "sim-train-000-42",
+        "scenario_id": "road-train-42-a666aae23727",
+        "route_id": "road-train-42-a666aae23727",
+        "split": "train",
+        "frames": 150,
+        "seed": 42
+      },
+      {
+        "id": "sim-train-001-43",
+        "scenario_id": "road-train-43-af44d889bc9c",
+        "route_id": "road-train-43-af44d889bc9c",
+        "split": "train",
+        "frames": 150,
+        "seed": 43
+      },
+      {
+        "id": "sim-val-000-44",
+        "scenario_id": "road-val-44-9583666cc1e0",
+        "route_id": "road-val-44-9583666cc1e0",
+        "split": "val",
+        "frames": 150,
+        "seed": 44
+      },
+      {
+        "id": "sim-test-000-45",
+        "scenario_id": "road-test-45-fa23cdfd982f",
+        "route_id": "road-test-45-fa23cdfd982f",
+        "split": "test",
+        "frames": 150,
+        "seed": 45
+      }
+    ],
+    "quality": {
+      "episodes": 4,
+      "frames": 600,
+      "groups": {
+        "train/sim": 2,
+        "val/sim": 1,
+        "test/sim": 1
+      },
+      "kind": "synthetic",
+      "revision": "sim-recording-v1-seed-42",
+      "fingerprint": "6dc1078fa2eb7dbdef980c4ba8000c36cf7a52e91e976576494c0227c387f208",
+      "fingerprint_scope": "manifest_metadata_and_file_stats",
+      "signature": {
+        "camera_names": [
+          "front_narrow",
+          "front_wide"
+        ],
+        "state_features": [
+          "speed_mps",
+          "yaw_rate_radps"
+        ],
+        "preprocessing_id": "procedural-road-model-rgb-v1",
+        "coordinate_frame": "vehicle_frd"
+      }
+    },
+    "pilot_ready": true,
+    "evidence_scope": "recording_contract_and_simulator_data_not_official_teacher_or_driving_quality"
+  },
+  "smoke": {
+    "frames": 60,
+    "warmed_frames": 35,
+    "reset_reproducible": true,
+    "reset_replayed_frames": 60,
+    "finite_actions": true,
+    "finite_features": true
+  },
+  "cache_valid_frames": {
+    "sim-train-000-42": 125,
+    "sim-train-001-43": 125,
+    "sim-val-000-44": 125,
+    "sim-test-000-45": 125
+  },
+  "sft": {
+    "steps": 20,
+    "base_frozen": true,
+    "checkpoint_sha256": "42c6d499578588e165b0773aeca4c3d754cb018e28fe39545dbac2c1ae716565",
+    "initial_validation": {
+      "metrics": {
+        "expert_mse": 0.3163700597286224,
+        "expert_lat_mae": 0.5744167170524597,
+        "expert_long_mae": 0.5502400288581848,
+        "teacher_mse": 0.0,
+        "teacher_lat_mae": 0.0,
+        "teacher_long_mae": 0.0
+      },
+      "counts": {
+        "expert_mse": 125,
+        "expert_lat_mae": 125,
+        "expert_long_mae": 125,
+        "teacher_mse": 125,
+        "teacher_lat_mae": 125,
+        "teacher_long_mae": 125
+      },
+      "domains": {
+        "sim": {
+          "metrics": {
+            "expert_mse": 0.3163700597286224,
+            "expert_lat_mae": 0.5744167170524597,
+            "expert_long_mae": 0.5502400288581848,
+            "teacher_mse": 0.0,
+            "teacher_lat_mae": 0.0,
+            "teacher_long_mae": 0.0
+          },
+          "counts": {
+            "expert_mse": 125,
+            "expert_lat_mae": 125,
+            "expert_long_mae": 125,
+            "teacher_mse": 125,
+            "teacher_lat_mae": 125,
+            "teacher_long_mae": 125
+          }
+        }
+      },
+      "loss": 0.3163700597286224,
+      "windows": 125,
+      "available_windows": 125,
+      "full_split": true
+    },
+    "final_validation": {
+      "metrics": {
+        "expert_mse": 0.14144282972812652,
+        "expert_lat_mae": 0.38798912668228147,
+        "expert_long_mae": 0.3637855312824249,
+        "teacher_mse": 0.03477899992465973,
+        "teacher_lat_mae": 0.18642759180068968,
+        "teacher_long_mae": 0.18645449805259703
+      },
+      "counts": {
+        "expert_mse": 125,
+        "expert_lat_mae": 125,
+        "expert_long_mae": 125,
+        "teacher_mse": 125,
+        "teacher_lat_mae": 125,
+        "teacher_long_mae": 125
+      },
+      "domains": {
+        "sim": {
+          "metrics": {
+            "expert_mse": 0.14144282972812652,
+            "expert_lat_mae": 0.38798912668228147,
+            "expert_long_mae": 0.3637855312824249,
+            "teacher_mse": 0.03477899992465973,
+            "teacher_lat_mae": 0.18642759180068968,
+            "teacher_long_mae": 0.18645449805259703
+          },
+          "counts": {
+            "expert_mse": 125,
+            "expert_lat_mae": 125,
+            "expert_long_mae": 125,
+            "teacher_mse": 125,
+            "teacher_lat_mae": 125,
+            "teacher_long_mae": 125
+          }
+        }
+      },
+      "loss": 0.14144282972812652,
+      "windows": 125,
+      "available_windows": 125,
+      "full_split": true
+    },
+    "val_teacher_mae_mps2": [
+      0.5744167170524597,
+      0.5502400288581848
+    ],
+    "val_adapted_mae_mps2": [
+      0.38798912358284,
+      0.3637855308055878
+    ],
+    "gate2_passed": true
+  },
+  "online": {
+    "dagger": {
+      "steps": 70,
+      "valid_teacher_steps": 18,
+      "updates": 17,
+      "replay_size": 8,
+      "base_frozen": true,
+      "reload_identical": true,
+      "gate2_bypassed": true,
+      "returns": {
+        "official_baseline": -0.5008917914731802,
+        "initial_validation": -0.23486087191248697,
+        "final_validation": -0.01995032712791618
+      }
+    },
+    "td3": {
+      "steps": 70,
+      "valid_teacher_steps": 18,
+      "updates": 17,
+      "replay_size": 8,
+      "base_frozen": true,
+      "reload_identical": true,
+      "gate2_bypassed": true,
+      "returns": {
+        "official_baseline": -0.5008917914731802,
+        "initial_validation": -0.23486087191248697,
+        "final_validation": -0.2565137579172627
+      }
+    }
+  },
+  "artifacts": "outputs/acceptance/cloud-official-sim-20261109/ (ignored, local only)"
+}

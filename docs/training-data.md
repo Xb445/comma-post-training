@@ -4,6 +4,10 @@
 磁盘使用普通 JSON + NPY / 图片路径，便于 NumPy/PyTorch 读取，避免绑定特定数据库。
 这是本项目的中间格式，不声称兼容原生 LeRobot、RLDS 或 openpilot 文件。
 
+官方 Teacher 需要额外的双视角标定和 5 Hz 数据。新的 `comma-driving record-sim` 可直接产生
+符合尺寸、时序和专家动作合同的仿真 episode，详细目录与 adapter 接口见
+[仿真数据合同与操作手册](official-sim-post-training.md#p1仿真器--comma-episodes-v1)。
+
 ## 目录与 manifest
 
 ```text

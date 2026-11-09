@@ -34,19 +34,31 @@ ort = pytest.importorskip(
 cv2 = pytest.importorskip("cv2", reason="install the teacher extra for RGB preprocessing tests")
 
 
-def make_fixture(path):
+def make_fixture(
+    path, *, action_width=2, fp16_controls=False, trailing_pad=False, official_layout=False
+):
     """A tiny *synthetic* graph consuming every official-shaped input, not official weights."""
     from onnx import TensorProto, helper, numpy_helper
 
+    if action_width not in (2, 4):
+        raise ValueError("test fixture supports two/four raw action channels")
+    if official_layout:
+        action_width, fp16_controls, trailing_pad = 4, True, True
+    features = 512 if official_layout else 4
+    history = 24 if official_layout else 3
+    desire_history = 25 if official_layout else 3
+    height, width = (128, 256) if official_layout else (8, 16)
+    prefix = 2062 if official_layout else 0
+    control_type = TensorProto.FLOAT16 if fp16_controls else TensorProto.FLOAT
     inputs = [
         helper.make_tensor_value_info(name, kind, shape)
         for name, kind, shape in (
-            ("img", TensorProto.UINT8, [1, 12, 8, 16]),
-            ("big_img", TensorProto.UINT8, [1, 12, 8, 16]),
-            ("features_buffer", TensorProto.FLOAT, [1, 3, 4]),
-            ("desire_pulse", TensorProto.FLOAT, [1, 3, 8]),
-            ("traffic_convention", TensorProto.FLOAT, [1, 2]),
-            ("action_t", TensorProto.FLOAT, [1, 2]),
+            ("img", TensorProto.UINT8, [1, 12, height, width]),
+            ("big_img", TensorProto.UINT8, [1, 12, height, width]),
+            ("features_buffer", control_type, [1, history, features]),
+            ("desire_pulse", control_type, [1, desire_history, 8]),
+            ("traffic_convention", control_type, [1, 2]),
+            ("action_t", control_type, [1, 2]),
         )
     ]
     nodes = []
@@ -80,28 +92,81 @@ def make_fixture(path):
             helper.make_node("Concat", ["action", "features"], ["outputs"], axis=1),
         ]
     )
+    # Keep arithmetic float32 on CPU while exercising real float16 graph inputs.
+    if fp16_controls:
+        controls = {"features_buffer", "desire_pulse", "traffic_convention", "action_t"}
+        for node in nodes:
+            for i, name in enumerate(node.input):
+                if name in controls:
+                    node.input[i] = name + "_float"
+        nodes[:0] = [
+            helper.make_node("Cast", [name], [name + "_float"], to=TensorProto.FLOAT)
+            for name in sorted(controls)
+        ]
+    # The default graph retains the original tiny two-channel fixture contract.
+    # The official-shaped graph recreates the reported slices, not official weights.
+    concat = nodes[-1]
+    output_parts = ["action"]
+    if action_width == 4:
+        output_parts.append("auxiliary")
+    output_parts.append("features")
+    if trailing_pad:
+        output_parts.append("padding")
+    if prefix:
+        output_parts.insert(0, "prefix")
+    concat.input[:] = output_parts
     constants = [
         numpy_helper.from_array(value, name)
         for name, value in (
             ("scale", np.array([0.001], dtype=np.float32)),
             ("axis1", np.array([1], dtype=np.int64)),
-            ("offsets", np.array([[0.0, 0.1, 0.2, 0.3]], dtype=np.float32)),
+            ("offsets", np.linspace(0, 0.3, features, dtype=np.float32)[None]),
         )
     ]
+    if action_width == 4:
+        constants.append(
+            numpy_helper.from_array(np.array([[123.0, -456.0]], dtype=np.float32), "auxiliary")
+        )
+    if trailing_pad:
+        constants.append(
+            numpy_helper.from_array(np.array([[777.0, 888.0]], dtype=np.float32), "padding")
+        )
+    if prefix:
+        constants.append(numpy_helper.from_array(np.zeros((1, prefix), dtype=np.float32), "prefix"))
+    output_width = prefix + action_width + features + (2 if trailing_pad else 0)
     graph = helper.make_graph(
         nodes,
         "synthetic_official_interface_fixture",
         inputs,
-        [helper.make_tensor_value_info("outputs", TensorProto.FLOAT, [1, 6])],
+        [helper.make_tensor_value_info("outputs", TensorProto.FLOAT, [1, output_width])],
         constants,
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
     model.ir_version = 9
     prop = model.metadata_props.add()
     prop.key = "output_slices"
-    prop.value = base64.b64encode(
-        pickle.dumps({"action": slice(0, 2), "hidden_state": slice(2, 6)})
-    ).decode()
+    slices = {
+        "action": slice(prefix, prefix + action_width),
+        "hidden_state": slice(prefix + action_width, prefix + action_width + features),
+    }
+    if trailing_pad:
+        slices["pad"] = slice(-2, None)
+    if official_layout:
+        slices.update(
+            lane_lines=slice(0, 528),
+            lane_lines_prob=slice(528, 536),
+            road_edges=slice(536, 800),
+            meta=slice(800, 855),
+            desire_pred=slice(855, 887),
+            pose=slice(887, 899),
+            wide_from_device_euler=slice(899, 905),
+            road_transform=slice(905, 917),
+            plan=slice(917, 1907),
+            lead=slice(1907, 2051),
+            lead_prob=slice(2051, 2054),
+            desire_state=slice(2054, 2062),
+        )
+    prop.value = base64.b64encode(pickle.dumps(slices)).decode()
     onnx.checker.check_model(model)
     onnx.save(model, path)
     return ModelIdentity(
@@ -359,3 +424,122 @@ def test_failed_teacher_cache_does_not_publish_partial_dataset(teacher_fixture, 
     with pytest.raises(ValueError, match="resample"):
         cache_teacher(manifest, teacher(teacher_fixture), tmp_path / "failed")
     assert not (tmp_path / "failed").exists()
+
+
+def test_real_report_layout_and_fp16_history_keep_auxiliary_out_of_actions(tmp_path):
+    path = tmp_path / "official-layout-synthetic.onnx"
+    identity = make_fixture(path, official_layout=True)
+    session = TeacherSession(path, identity=identity)
+    description = session.describe()
+    assert description["kind"] == "synthetic_fixture"
+    assert description["adapter_version"].endswith("-v2")
+    assert description["input_shapes"]["features_buffer"] == (1, 24, 512)
+    assert description["input_dtypes"]["features_buffer"] == "float16"
+    assert description["output_width"] == 2580
+    assert description["output_slices"]["action"] == [2062, 2066]
+    assert description["output_slices"]["hidden_state"] == [2066, 2578]
+    assert description["output_slices"]["pad"] == [2578, 2580]
+    assert description["action_layout"]["raw_width"] == 4
+    assert description["action_layout"]["mean_indices"] == [0, 1]
+    image = pack_yuv420(np.full((256, 512, 3), 90, dtype=np.uint8))
+    controls = {"desire": np.zeros(8), "traffic": [1, 0], "action_t": [0.2, 0.3]}
+    feed = {
+        name: np.zeros(shape, dtype=session.dtypes[name]) for name, shape in session.shapes.items()
+    }
+    for name in ("img", "big_img"):
+        feed[name][:, 6:] = image
+    feed["traffic_convention"][0] = controls["traffic"]
+    feed["action_t"][0] = controls["action_t"]
+    reference = session.session.run([session.output_name], feed)[0][0]
+    prediction = session.step({"img": image, "big_img": image}, **controls)
+    np.testing.assert_array_equal(prediction["raw_action"], reference[2062:2066])
+    np.testing.assert_array_equal(prediction["action"], reference[2062:2064])
+    np.testing.assert_array_equal(prediction["action_auxiliary"], [123.0, -456.0])
+    np.testing.assert_array_equal(prediction["features"], reference[2066:2578])
+    np.testing.assert_array_equal(
+        session.queues["features_buffer"][0, -1], prediction["features"].astype(np.float16)
+    )
+    assert prediction["plan"].shape == (33, 15)
+    assert session.warmup_frames == 25
+
+
+def test_padding_and_negative_bounds_follow_valid_python_slices():
+    metadata = {"action": slice(0, 4), "hidden_state": slice(4, -2), "pad": slice(-2, None)}
+    encoded = base64.b64encode(pickle.dumps(metadata)).decode()
+    slices = decode_output_slices(encoded, 10)
+    for name, value in metadata.items():
+        np.testing.assert_array_equal(np.arange(10)[slices[name]], np.arange(10)[value])
+    assert slices["pad"] == slice(8, 10, 1) or slices["pad"] == slice(8, 10)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [slice(0, 11), slice(-11, None), slice(5, 4), slice(0, 4, 0), slice(0, 4, -1), slice(0.5, 4)],
+)
+def test_invalid_output_slices_are_rejected(value):
+    encoded = base64.b64encode(pickle.dumps({"action": value})).decode()
+    with pytest.raises(ValueError):
+        decode_output_slices(encoded, 10)
+
+
+def test_smoke_replays_full_sequence_and_reports_warmed_latency(teacher_fixture):
+    session = teacher(teacher_fixture)
+    frames = session.warmup_frames + 3
+    report = smoke_teacher(session, frames=frames)
+    assert report["warmed_frames"] == 3
+    assert report["reset_sequence_max_abs"] == {"action": 0.0, "features": 0.0}
+    assert report["latency_summary_ms"]["all"]["count"] == frames
+    warmed = report["latency_summary_ms"]["warmed"]
+    assert warmed["count"] == 3
+    assert 0 <= warmed["p50"] <= warmed["p95"] <= warmed["p99"]
+
+
+def test_smoke_detects_divergence_after_reproducible_first_frame(teacher_fixture, monkeypatch):
+    session = teacher(teacher_fixture)
+    original_reset, original_step = session.reset, session.step
+    resets = 0
+
+    def reset():
+        nonlocal resets
+        resets += 1
+        original_reset()
+
+    def step(*args, **kwargs):
+        result = original_step(*args, **kwargs)
+        if resets >= 2 and result["frame"] > 0:
+            result["action"] = result["action"] + 1.0
+        return result
+
+    monkeypatch.setattr(session, "reset", reset)
+    monkeypatch.setattr(session, "step", step)
+    with pytest.raises(RuntimeError, match="reset"):
+        smoke_teacher(session, frames=3)
+
+
+def test_ort_profile_reports_actual_node_provider(teacher_fixture, tmp_path):
+    path, identity = teacher_fixture
+    session = TeacherSession(path, identity=identity, profile_prefix=tmp_path / "ort-profile")
+    report = smoke_teacher(session, frames=2)
+    profile = report["profiling"]
+    assert profile["providers"]["CPUExecutionProvider"]["node_events"] > 0
+    assert profile["providers"]["CPUExecutionProvider"]["total_duration_us"] >= 0
+    with open(profile["path"], encoding="utf-8") as stream:
+        events = json.load(stream)
+    assert any(event.get("args", {}).get("provider") == "CPUExecutionProvider" for event in events)
+    assert session.finish_profiling() == profile
+
+
+def test_cuda_request_rejects_runtime_silent_cpu_fallback(teacher_fixture, monkeypatch):
+    path, identity = teacher_fixture
+    original = ort.InferenceSession
+    monkeypatch.setattr(
+        ort, "get_available_providers", lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    )
+
+    def fallback(model, *, sess_options, providers):
+        assert providers == ["CUDAExecutionProvider"]
+        return original(model, sess_options=sess_options, providers=["CPUExecutionProvider"])
+
+    monkeypatch.setattr(ort, "InferenceSession", fallback)
+    with pytest.raises(ValueError, match="silent CPU provider fallback"):
+        TeacherSession(path, identity=identity, provider="cuda")

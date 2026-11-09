@@ -1,0 +1,38 @@
+{
+  "format": "comma-user-supplied-acceptance-v1",
+  "origin": "user_uploaded_local_logs",
+  "original_files": {
+    "gpu-compute.txt": {
+      "sha256": "0a2a608641d309a9c96e8cb55187b760be57cfbc549b86b9ecd15554477330ba",
+      "bytes": 281
+    },
+    "gpu-python.txt": {
+      "sha256": "685c6ea07cfee6138afc9d7614df591dd7339e007c301cf33fca7c8c0980e688",
+      "bytes": 561
+    },
+    "gpu-info.txt": {
+      "sha256": "b9a7fc84978791edbcefa01b01a0538f2466c4b0a96408cbaaa98f8c574246ff",
+      "bytes": 2173
+    },
+    "smoke-cuda-fixed.json": {
+      "sha256": "7c7b21794e7f358223b89b202d1dc356b009c5f508511633865b39662c34ea5a",
+      "bytes": 2668
+    }
+  },
+  "sanitization": [
+    "local model path replaced by <local-checkout>",
+    "Python module absolute path omitted",
+    "nvidia-smi summarized without processes, PIDs, bus IDs"
+  ],
+  "original_adapter": "supercombo-084747-stream-5hz-v1",
+  "current_adapter": "supercombo-084747-stream-5hz-v2",
+  "current_adapter_real_gpu_rerun": false,
+  "scope": [
+    "official_asset_identity_verified_in_user_report",
+    "2_synthetic_black_frames",
+    "no_warmed_frames",
+    "not_real_driving_validation",
+    "not_cloud_execution",
+    "provider_list_is_not_node_placement_proof"
+  ]
+}

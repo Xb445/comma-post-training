@@ -1,0 +1,8 @@
+matmul: (4096, 4096) finite: True
+step=0 loss=1.028666 grad_norm=0.486925
+step=1 loss=1.007936 grad_norm=0.460815
+step=2 loss=0.988209 grad_norm=0.436692
+step=3 loss=0.969428 grad_norm=0.414571
+step=4 loss=0.951527 grad_norm=0.394349
+max memory allocated GB: 0.305
+CUDA compute OK

@@ -1,0 +1,16 @@
+python: 3.12.13 (main, Jun 23 2026, 15:18:55) [Clang 22.1.3 ]
+torch: 2.8.0+cu128
+torch.version.cuda: 12.8
+cuda available: True
+cuda device count: 1
+gpu name: NVIDIA GeForce RTX 3090
+capability: (8, 6)
+gpu memory GB: 23.55
+bf16 supported: True
+cudnn available: True
+cudnn version: 91002
+onnx: 1.23.2
+onnxruntime: 1.31.1
+ort providers: ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
+opencv: 4.14.0
+numpy: 2.5.4

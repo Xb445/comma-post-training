@@ -1,0 +1,32 @@
+algorithm = "td3"
+teacher_model = "../../models/big_driving_supercombo.onnx"
+teacher_provider = "cuda"
+init_checkpoint = "../../outputs/official-residual-sim/best.pt"
+gate2_report = "../../outputs/official-residual-sim-val/gate2.json"
+output_dir = "../../outputs/official-td3"
+env_factory = "comma_post_training.simulator.recording:RoadEnvironment"
+steps = 1000
+episode_limit = 150
+eval_episodes = 2
+batch_size = 32
+warmup_steps = 64
+capacity = 10000
+device = "cpu"
+seed = 42
+eval_seed = 1000000
+learning_rate = 0.001
+action_low = [-3.0, -3.0]
+action_high = [3.0, 3.0]
+# Extra TD3 correction around the frozen official + offline residual anchor.
+# The total correction may reach offline_scale + this scale; final bounds still apply.
+residual_scale = [0.25, 0.25]
+exploration_noise = 0.1
+target_noise = 0.2
+noise_clip = 0.5
+gamma = 0.99
+tau = 0.005
+policy_delay = 2
+residual_penalty = 0.001
+
+[env_kwargs]
+horizon = 150

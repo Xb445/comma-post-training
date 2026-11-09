@@ -16,6 +16,7 @@ from comma_post_training.engine.checkpoints import (
 from comma_post_training.engine.tasks import build_model
 from comma_post_training.engine.trainer import select_device
 from comma_post_training.teacher.cache import iter_teacher_episode
+from comma_post_training.teacher.evaluation import RouteMetrics
 
 
 @torch.no_grad()
@@ -43,6 +44,7 @@ def predict_adapted(
     model.load_state_dict(saved["model_state"], strict=True)
     errors, base_errors = np.zeros(2), np.zeros(2)
     count, labeled = 0, 0
+    routes = {}
     with staged_directory(output) as staging:
         with (staging / "predictions.jsonl").open("w", encoding="utf-8") as stream:
             for ref in references:
@@ -91,6 +93,7 @@ def predict_adapted(
                         base_errors += np.abs(result["action"] - expert)
                         labeled += 1
                         row["expert_action"] = expert.tolist()
+                    routes.setdefault(ref.route_id, RouteMetrics()).add(row, spec["residual_scale"])
                     stream.write(json.dumps(row, allow_nan=False) + "\n")
                     count += 1
         if not count:
@@ -109,6 +112,7 @@ def predict_adapted(
             "data_fingerprint": catalogue.fingerprint,
             "residual_scale_mps2": spec["residual_scale"],
             "predictions": str(output / "predictions.jsonl"),
+            "per_route": {key: value.report() for key, value in routes.items()},
         }
         atomic_json(staging / "metrics.json", report)
     return report

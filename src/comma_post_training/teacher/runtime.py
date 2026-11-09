@@ -2,6 +2,7 @@
 
 import base64
 import io
+import json
 import pickle
 import time
 from pathlib import Path
@@ -10,7 +11,7 @@ import numpy as np
 
 from comma_post_training.teacher.assets import OFFICIAL, ModelIdentity, verify_model
 
-ADAPTER_VERSION = "supercombo-084747-stream-5hz-v1"
+ADAPTER_VERSION = "supercombo-084747-stream-5hz-v2"
 IMAGE_NAMES = ("img", "big_img")
 INPUT_NAMES = {*IMAGE_NAMES, "features_buffer", "desire_pulse", "traffic_convention", "action_t"}
 DTYPES = {"tensor(float)": np.float32, "tensor(float16)": np.float16, "tensor(uint8)": np.uint8}
@@ -24,6 +25,8 @@ class _SliceUnpickler(pickle.Unpickler):
 
 
 def decode_output_slices(encoded: str, width: int) -> dict[str, slice]:
+    if type(width) is not int or width < 1:
+        raise ValueError("output width must be a positive integer")
     try:
         payload = base64.b64decode(encoded, validate=True)
         if len(payload) > 1024 * 1024:
@@ -33,23 +36,34 @@ def decode_output_slices(encoded: str, width: int) -> dict[str, slice]:
         raise ValueError("invalid output_slices metadata") from error
     if not isinstance(result, dict) or not result:
         raise ValueError("output_slices must be a nonempty dictionary")
+    normalized = {}
     for name, value in result.items():
         if not isinstance(name, str) or not isinstance(value, slice):
             raise ValueError("output_slices must map names to slices")
         if value.step not in (None, 1) or any(
-            type(v) is not int for v in (value.start, value.stop)
+            v is not None and type(v) is not int for v in (value.start, value.stop)
         ):
-            raise ValueError("output slices require explicit integer bounds and unit stride")
-        if not 0 <= value.start <= value.stop <= width or (
-            value.start == value.stop and name != "pad"
-        ):
+            raise ValueError("output slices require integer/None bounds and unit stride")
+        # Use Python slice semantics, including official pad=slice(-2,None), while
+        # refusing silent clipping of an invalid exported bound.
+        if any(v is not None and not -width <= v <= width for v in (value.start, value.stop)):
             raise ValueError("output slice is outside model outputs")
-    return result
+        start, stop, _ = value.indices(width)
+        if start > stop or (start == stop and name != "pad"):
+            raise ValueError("output slice is empty or reversed")
+        normalized[name] = slice(start, stop)
+    return normalized
 
 
 class TeacherSession:
     def __init__(
-        self, model: Path, *, provider="cpu", threads=2, identity: ModelIdentity = OFFICIAL
+        self,
+        model: Path,
+        *,
+        provider="cpu",
+        threads=2,
+        identity: ModelIdentity = OFFICIAL,
+        profile_prefix: Path | None = None,
     ):
         self.receipt = verify_model(model, identity)
         self.identity = identity
@@ -68,12 +82,23 @@ class TeacherSession:
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        self.requested_provider = name
+        self.profile_prefix = Path(profile_prefix) if profile_prefix is not None else None
+        self._profile_result = None
+        if self.profile_prefix is not None:
+            self.profile_prefix.parent.mkdir(parents=True, exist_ok=True)
+            options.enable_profiling = True
+            options.profile_file_prefix = str(self.profile_prefix)
         try:
             self.session = ort.InferenceSession(str(model), sess_options=options, providers=[name])
         except Exception as error:
             raise ValueError(
                 f"ONNX Runtime could not load the verified Teacher: {error}"
             ) from error
+        if name not in self.session.get_providers():
+            raise ValueError(
+                f"requested {name} could not initialize; refusing silent CPU provider fallback"
+            )
         self.inputs = {value.name: value for value in self.session.get_inputs()}
         if set(self.inputs) != INPUT_NAMES:
             raise ValueError(f"unsupported Supercombo input names: {sorted(self.inputs)}")
@@ -104,6 +129,7 @@ class TeacherSession:
         self.output_name = outputs[0].name
         if type(outputs[0].shape[-1]) is not int or outputs[0].shape[-1] < 1:
             raise ValueError("Teacher output width must be static and positive")
+        self.output_width = outputs[0].shape[-1]
         encoded = self.session.get_modelmeta().custom_metadata_map.get("output_slices")
         if not isinstance(encoded, str):
             raise ValueError("Teacher is missing its output_slices metadata")
@@ -113,8 +139,22 @@ class TeacherSession:
         self.feature_dim = self.shapes["features_buffer"][-1]
         if self.slices["hidden_state"].stop - self.slices["hidden_state"].start != self.feature_dim:
             raise ValueError("hidden_state does not match the recurrent feature queue")
-        if self.slices["action"].stop - self.slices["action"].start != 2:
-            raise ValueError("action output must be [a_lat,a_long], not an assumed plan conversion")
+        self.action_width = self.slices["action"].stop - self.slices["action"].start
+        if self.action_width not in (2, 4):
+            raise ValueError("unsupported action layout: expected two means or four raw parameters")
+        if identity.kind == "official" and self.action_width != 4:
+            raise ValueError(
+                "the pinned official Teacher requires its four-channel raw action layout"
+            )
+        # modeld.get_action_from_model at the pinned official commit consumes the
+        # first two action channels directly; the remaining two do not control
+        # the vehicle. Keep them explicit rather than interpreting them as actions.
+        self.action_layout = {
+            "raw_width": self.action_width,
+            "mean_indices": [0, 1],
+            "auxiliary_indices": list(range(2, self.action_width)),
+            "auxiliary_semantics": "not_used_for_control",
+        }
         self.image_size = (self.shapes["img"][2] * 2, self.shapes["img"][3] * 2)
         self.warmup_frames = max(
             self.shapes["features_buffer"][1] + 1, self.shapes["desire_pulse"][1] - 1
@@ -133,9 +173,14 @@ class TeacherSession:
             **self.receipt,
             "adapter_version": ADAPTER_VERSION,
             "providers": self.session.get_providers(),
+            "requested_provider": self.requested_provider,
             "input_shapes": self.shapes,
             "input_dtypes": {k: np.dtype(v).name for k, v in self.dtypes.items()},
             "feature_dim": self.feature_dim,
+            "output_width": self.output_width,
+            "action_layout": self.action_layout,
+            "output_slice_semantics": "normalized_python_slices",
+            "profiling_enabled": self.profile_prefix is not None,
             "context_hz": 5,
             "warmup_frames": self.warmup_frames,
             "action_semantics": "unsmoothed_network_a_lat_a_long_mps2",
@@ -150,7 +195,32 @@ class TeacherSession:
             "adapter_version": ADAPTER_VERSION,
             "feature_dim": self.feature_dim,
             "action_semantics": "unsmoothed_network_a_lat_a_long_mps2",
+            "action_layout": self.action_layout,
         }
+
+    def finish_profiling(self):
+        """Flush ORT events and summarize actual execution-provider assignment."""
+        if self.profile_prefix is None:
+            return None
+        if self._profile_result is not None:
+            return self._profile_result
+        path = Path(self.session.end_profiling())
+        events = json.loads(path.read_text(encoding="utf-8"))
+        providers = {}
+        for event in events:
+            arguments = event.get("args", {})
+            provider = arguments.get("provider")
+            if event.get("cat") != "Node" or not provider:
+                continue
+            row = providers.setdefault(provider, {"node_events": 0, "total_duration_us": 0.0})
+            row["node_events"] += 1
+            row["total_duration_us"] += float(event.get("dur", 0))
+        self._profile_result = {
+            "path": str(path.resolve()),
+            "providers": providers,
+            "scope": "ORT node events; includes smoke replay when requested",
+        }
+        return self._profile_result
 
     def step(self, images: dict, *, desire, traffic, action_t):
         prepared = {}
@@ -196,7 +266,8 @@ class TeacherSession:
         latency = (time.perf_counter() - start) * 1000
         if not np.isfinite(raw).all():
             raise RuntimeError("Teacher returned nonfinite outputs")
-        action = raw[0, self.slices["action"]].copy()
+        raw_action = raw[0, self.slices["action"]].copy()
+        action = raw_action[:2].copy()
         features = raw[0, self.slices["hidden_state"]].copy()
         queue = self.queues["features_buffer"]
         queue[:, :-1] = queue[:, 1:].copy()
@@ -205,6 +276,8 @@ class TeacherSession:
         self.steps += 1
         result = {
             "action": action,
+            "raw_action": raw_action,
+            "action_auxiliary": raw_action[2:].copy(),
             "features": features,
             "valid": index >= self.warmup_frames,
             "latency_ms": latency,

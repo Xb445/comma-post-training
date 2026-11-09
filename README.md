@@ -1,15 +1,18 @@
 # comma-post-training
 
 当前主线：**官方驾驶 Teacher 推理 → 冻结官方基座 → 用自有数据训练附加残差头**。
-世界模型适配训练留待资源就绪后开展。既有原生策略/AE/Flow、DAgger/TD3 保留为研究基线。
+已接入仿真数据录制、离线残差 SFT 和实时官方基座 DAgger/TD3；世界模型适配训练留待资源就绪后开展。
+既有原生策略/AE/Flow、DAgger/TD3 保留为研究基线。
 
 已实现固定版本 ONNX Teacher adapter、显式 RGB 标定、状态队列、特征/动作缓存、
-冻结基座残差 SFT 与组合推理接口。官方权重身份已核实，但实际下载仍被网络 403 阻塞，
-当前新链路只通过合成 ONNX 测试，尚不能声称真实官方推理已验收。
+冻结基座残差 SFT 与组合推理接口。用户已在本地 RTX 3090 完成官方权重的两帧黑图 smoke；
+本次 v2 adapter 和后训练工程链路通过云端合成 ONNX 测试。官方权重下的 warmup、
+真实驾驶数据和后训练改善仍待本地验收，见 [证据记录](docs/acceptance/local-rtx3090-20261106/README.md)。
 
 ## 从这里开始
 
 - [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。
+- [P0–P4 仿真后训练操作手册](docs/official-sim-post-training.md)：数据录制、标定、缓存、Gate 2、实时 DAgger/TD3。
 - [完整训练说明](docs/training-framework.md)：模块结构、三条训练路径、命令、续训和闭环接口。
 - [自有数据接入合同](docs/training-data.md)：NPZ/NPY、图像索引、时间对齐、位姿和动作单位。
 - [训练配置](configs/training/)：policy、compressor、world_model、DAgger、TD3 和 learned 环境。
@@ -58,7 +61,8 @@ third_party/                         固定版本上游源码，保持原样
 tests/                               数学/数据合同与实际 CPU 训练集成测试
 ```
 
-两类闭环 backend 已提供：合成点质量环境用于算法验证；learned latent 环境以平面运动学产生
+闭环 backend 包括：合成点质量环境用于算法验证；双 pinhole 道路环境支持官方 Teacher 的
+256×512 双视角数据录制与在线后训练；learned latent 环境以平面运动学产生
 动作条件并回灌生成图像，仍使用记录中的未来 anchors 和代理奖励。真实仿真器通过环境工厂接入，
 需要自行验证场景划分、动作响应、传感器和车辆模型；当前结果不代表驾驶泛化或车辆部署就绪。
 
@@ -89,8 +93,9 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline --extra teache
 uv build
 ```
 
-测试包含实际策略/压缩器/Flow 训练、测试集评估、冻结编码器、数据缓存、精确 CPU 续训、
+当前 115 项测试通过，包含实际策略/压缩器/Flow 训练、测试集评估、冻结编码器、数据缓存、精确 CPU 续训、
 learned 环境动作响应、DAgger 更新，以及 TD3 双 Critic/延迟更新/截断 bootstrap。
+另覆盖官方形状的合成 ONNX、完整 reset 重放、sim→cache→SFT、Gate 2 和实时 Teacher DAgger/TD3。
 依赖首次安装需要访问 PyPI / PyTorch CPU 索引；安装后原生合成链路可以离线运行。
 
 默认锁文件固定 CPU Torch。CUDA 原生实验与上游复现应使用独立环境，见
