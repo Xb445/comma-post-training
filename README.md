@@ -11,6 +11,7 @@
 
 ## 从这里开始
 
+- [完整使用手册](docs/user-guide.md)：28 章中文说明，包含现有结果复用、从零安装、数据接入、完整训练评估、配置速查和排错。
 - [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。
 - [P0–P4 仿真后训练操作手册](docs/official-sim-post-training.md)：数据录制、标定、缓存、Gate 2、实时 DAgger/TD3。
 - [可视化与评估](docs/visualization-and-evaluation.md)：本地结果分析、离线 HTML 相机回放、PNG/SVG/CSV/GIF、真实策略评估 trace。
@@ -56,7 +57,8 @@ uv run --locked --offline comma-driving evaluate-checkpoint \
 将 `--manifest` 换为自有数据即可复用训练器。数据生成和训练拒绝覆盖已有非空目录；重复运行
 请使用新目录，已有训练可用 `--resume` 接续。路径在配置内相对配置文件，在 CLI 内相对工作目录。
 完整的压缩器、latent 缓存、世界模型及闭环命令见 [训练说明](docs/training-framework.md)。
-原始数据、缓存、模型与输出请放入 `data/local/`、`datasets/`、`models/`、`outputs/` 等忽略目录。
+原始数据和缓存放入 `data/local/`，模型放入 `models/`，实验输出放入 `outputs/`；这些目录已被忽略。
+其他存储目录是否被 Git 忽略，请以 `git check-ignore` 的实际结果为准。
 
 ## 关键结构
 
