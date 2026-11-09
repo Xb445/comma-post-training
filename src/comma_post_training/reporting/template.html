@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驾驶策略实验报告</title>
+<style>
+:root{color-scheme:light;--ink:#142536;--muted:#607080;--line:#dce3e9;--blue:#3d60d7;--bg:#f4f6f8}
+*{box-sizing:border-box}body{margin:0;font:15px/1.65 system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:32px max(24px,calc((100vw - 1280px)/2));background:#142536;color:white}header small{color:#a6c4d9;letter-spacing:.14em}h1{margin:4px 0;font-size:30px;font-weight:650}header p{margin:4px 0;color:#d1dee8}
+nav{flex-wrap:wrap;position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--line);padding:12px 24px;display:flex;gap:24px}a{color:var(--blue)}nav a{text-decoration:none}main{max-width:1280px;margin:auto;padding:24px}section{scroll-margin-top:70px;margin-bottom:32px}h2{font-size:23px}h3{font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.card,.panel,.figure{min-width:0;overflow-wrap:anywhere;background:white;border:1px solid var(--line);border-radius:10px;padding:20px}.card strong{display:block;font-size:23px}.muted,small{color:var(--muted)}.notice{border-left:4px solid #d89422;background:#fff6df;padding:14px 18px;margin:12px 0}.ok{color:#18794e}.bad{color:#b42318}.pill{display:inline-block;font-size:12px;border-radius:4px;background:#e9eef5;padding:2px 7px;margin:2px 5px 2px 0}.controls>*{max-width:100%;min-width:0}#episode-select{width:min(60vw,760px)}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px}select,button{max-width:100%;font:inherit;padding:6px 10px;background:white;border:1px solid #bdcad6;border-radius:5px}button{cursor:pointer}input[type=range]{flex:1;min-width:200px}#camera-grid{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}.camera{flex:1;min-width:230px;background:#122334;border-radius:7px;overflow:hidden}.camera img{width:100%;height:240px;object-fit:contain;display:block}.camera p{color:#d3e0eb;margin:0;padding:4px 12px}.plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}canvas{width:100%;height:230px;background:#fcfdfe;border:1px solid var(--line);border-radius:6px}#frame-values{white-space:pre-wrap;font:13px/1.65 ui-monospace,monospace;background:#f5f7fa;padding:12px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}.table-wrap{overflow:auto}.figure{margin:18px 0}.figure img{display:block;width:100%;height:auto}.figure p{color:var(--muted)}details pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.hidden{display:none}footer{margin:24px;color:var(--muted);text-align:center}code{font-size:13px}
+</style></head>
+<body><header><small>COMMA POST-TRAINING · EXPERIMENT EVIDENCE</small><h1>驾驶策略实验报告</h1><p>观测、监督误差与闭环表现，共用一份可追溯报告。</p></header>
+<nav><a href="#overview">结果概览</a><a href="#playback">数据 / 策略回放</a><a href="#evaluation">闭环评估</a><a href="#figures">图表与导出</a></nav>
+<main>
+<section id="overview"><h2>结果概览</h2><div class="grid" id="cards"></div><div id="notices"></div><details class="panel"><summary>输入来源、模型身份与原始统计</summary><pre id="provenance"></pre></details></section>
+<section id="playback"><h2>同步相机、轨迹与动作</h2><div class="panel" id="player"><div class="controls"><label>Episode <select id="episode-select"></select></label><button id="play" type="button">播放</button><button id="prev" type="button">上一帧</button><button id="next" type="button">下一帧</button><label>速度 <select id="speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label></div><p id="episode-info" class="muted"></p><div id="camera-grid"></div><div class="controls"><input id="frame-slider" type="range" min="0" value="0" aria-label="观测时间"><span id="frame-label"></span></div><pre id="frame-values"></pre><div class="plots"><div><h3>World XY · 米</h3><canvas id="trajectory" width="760" height="390"></canvas></div><div><h3>横向加速度 · m/s²</h3><canvas id="lateral" width="760" height="390"></canvas></div><div><h3>纵向加速度 · m/s²</h3><canvas id="longitudinal" width="760" height="390"></canvas></div></div><p class="muted">绿色 expert · 蓝色 Teacher · 橙色 adapted · 棕色 commanded · 紫色 executed。虚线指向当前观测；无效标签保留为空，Teacher warmup 不参与监督评价。回放仅抽样图片，完整时间序列在导出图表和 CSV 中。</p></div><p id="no-player" class="notice hidden">当前输入没有相机数据。可追加 --manifest 或 --trace-dir；已有训练日志可独立生成图表。</p></section>
+<section id="evaluation"><h2>闭环评估与失败统计</h2><p class="muted">回报越大越好。总控制回报和每步回报一起看；终止惩罚、控制步数及场景差异都会影响结果。</p><div id="comparison"></div><div class="table-wrap panel"><table><thead><tr><th>实验</th><th>策略阶段</th><th>评估 split</th><th>场景数</th><th>控制回报</th><th>每控制步回报</th><th>控制步数</th><th>终止 / 截断</th></tr></thead><tbody id="evaluation-rows"></tbody></table></div></section>
+<section id="figures"><h2>实测图表与数据导出</h2><p>每张图均有 PNG 与 SVG 文件；同目录 CSV 保留数值，summary.json 保存统计与输入哈希。HTML 中的预览可独立离线查看，下载链接需要保留完整报告目录。</p>__FIGURES__</section>
+</main><footer>本报告读取本地实验产物，不运行模型推理。单个 seed 与合成道路环境的结果不代表真实驾驶泛化。</footer>
+<script type="application/json" id="report-data">__DATA__</script>
+<script>
+'use strict';
+const report=JSON.parse(document.getElementById('report-data').textContent), s=report.summary;
+const el=id=>document.getElementById(id), fmt=v=>typeof v==='number'?Number(v).toPrecision(5):'—';
+function element(tag,text,cls){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(cls)node.className=cls;return node;}
+function card(label,value,detail){const node=element('div',undefined,'card');node.append(element('small',label),element('strong',value),element('p',detail,'muted'));el('cards').append(node);}
+const teacher=s.teacher_smoke?.teacher;
+card('Teacher 权重',teacher?.kind||s.dataset?.signature?.teacher_identity?.kind||'未提供',teacher?.sha256?teacher.sha256.slice(0,16)+'…':'身份信息见输入来源');
+card('数据集',s.dataset?`${s.dataset.episodes} episodes · ${s.dataset.frames} 帧`:`${report.viewers.length} 段回放`,s.dataset?`${s.dataset.kind} · ${s.dataset.revision}`:'未提供 dataset manifest');
+card('实验记录',`${s.runs.length} 次训练 · ${s.predictions.length} 组预测`, '图表使用实测 events；缺失记录不会补成零');
+if(s.teacher_smoke)card('Teacher 验收',`${s.teacher_smoke.frames} 帧 / ${s.teacher_smoke.warmed_frames??'未知'} warmed`,`完整重放 ${s.teacher_smoke.reset_replayed_frames??'未记录'} 帧 · reset ${s.teacher_smoke.reset_reproducible?'通过':'未通过/未知'}`);
+function notice(text){el('notices').append(element('div',text,'notice'));}
+if(s.dataset?.kind==='synthetic'||s.runs.some(run=>run.dataset_kind==='synthetic'||run.environment_kind==='synthetic'))notice('数据来自合成仿真环境。可用于链路与行为诊断，实际道路泛化仍需真实数据及目标仿真器评估。');
+for(const run of s.runs){if(run.verdict==='degraded')notice(`${run.name}：相对离线 anchor 的验证控制回报退化 ${fmt(-run.controlled_return_delta)}。先核对终止/控制步数、轨迹与动作，再决定训练预算和参数。`);if(run.gate2_bypassed)notice(`${run.name} 使用了 engineering-only Gate bypass，此记录仅用于工程验证。`);if(run.evaluations&&run.evaluations.final_validation.episodes<2)notice(`${run.name} 仅 ${run.evaluations.final_validation.episodes} 个验证场景，不提供置信区间或泛化结论。`);if(run.events===0)notice(`${run.name} 缺少 events.jsonl，仅能展示汇总值。`);}
+el('provenance').textContent=JSON.stringify(s,null,2);if(!s.runs.some(run=>run.evaluations)&&!s.evaluation_traces.length)el('evaluation').append(element('p','当前输入没有闭环评估记录，可追加官方闭环训练目录。','muted'));
+el('comparison').append(element('p',s.comparison.same_recorded_setup?'跨实验记录的模型、场景、奖励和预算一致；仍需多 seed 验证。':'跨实验预算/来源不完整或不一致；下表按各次实验展示。','muted'));
+const names={official_baseline:'官方基座',initial_validation:'离线 anchor',final_validation:'在线训练后'};
+for(const run of s.runs){for(const [phase,m] of Object.entries(run.evaluations||{})){const tr=element('tr');for(const value of [run.name,names[phase],run.evaluation_split,m.episodes,fmt(m.mean_controlled_return),fmt(m.controlled_return_per_step),m.controlled_steps,`${m.terminated} / ${m.truncated}`])tr.append(element('td',String(value??'—')));el('evaluation-rows').append(tr);}}
+for(const trace of s.evaluation_traces){const m=trace.evaluation,tr=element('tr');for(const value of [trace.path.split('/').pop(),trace.policy+' · trace',trace.split,m.episodes,fmt(m.mean_controlled_return),fmt(m.controlled_return_per_step),m.controlled_steps,`${m.terminated} / ${m.truncated}`])tr.append(element('td',String(value??'—')));el('evaluation-rows').append(tr);}
+let current=0,playing=false,timer;
+const colors={expert:'#18794e',teacher:'#546ee5',adapted:'#c24e10',commanded:'#bc5a13',executed:'#824fbd'};
+const finite=v=>typeof v==='number'&&Number.isFinite(v);
+function plot(id,lines,point,xy=false){
+ const canvas=el(id),ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+ const points=lines.flatMap(line=>line.points.filter(p=>finite(p[0])&&finite(p[1])));
+ if(!points.length){ctx.fillStyle='#607080';ctx.font='22px system-ui';ctx.fillText('没有可用记录',40,70);return;}
+ let xmin=Math.min(...points.map(p=>p[0])),xmax=Math.max(...points.map(p=>p[0])),ymin=Math.min(...points.map(p=>p[1])),ymax=Math.max(...points.map(p=>p[1]));
+ if(xmin===xmax)xmax=xmin+1;if(ymin===ymax){ymin-=.1;ymax+=.1;}
+ const pad=(ymax-ymin)*.1;ymin-=pad;ymax+=pad;if(xy){const unit=Math.max((xmax-xmin)/(W-90),(ymax-ymin)/(H-80)),cx=(xmin+xmax)/2,cy=(ymin+ymax)/2;xmin=cx-unit*(W-90)/2;xmax=cx+unit*(W-90)/2;ymin=cy-unit*(H-80)/2;ymax=cy+unit*(H-80)/2;}
+ const sx=x=>62+(x-xmin)/(xmax-xmin)*(W-90),sy=y=>H-45-(y-ymin)/(ymax-ymin)*(H-80);
+ ctx.font='18px system-ui';ctx.strokeStyle='#dce3e9';ctx.fillStyle='#607080';ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){let y=ymin+(ymax-ymin)*i/4;ctx.beginPath();ctx.moveTo(62,sy(y));ctx.lineTo(W-28,sy(y));ctx.stroke();ctx.fillText(y.toFixed(Math.abs(ymax-ymin)<.1?3:1),3,sy(y)+6);}
+ ctx.fillText(xmin.toFixed(1),62,H-12);ctx.fillText(xmax.toFixed(1),W-85,H-12);
+ for(const line of lines){ctx.strokeStyle=line.color;ctx.lineWidth=2.5;ctx.beginPath();let valid=false;for(const p of line.points){if(!finite(p[0])||!finite(p[1])){valid=false;continue;}if(valid)ctx.lineTo(sx(p[0]),sy(p[1]));else ctx.moveTo(sx(p[0]),sy(p[1]));valid=true;}ctx.stroke();}
+ if(point&&finite(point[0])){ctx.strokeStyle='#172536';ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(sx(point[0]),35);ctx.lineTo(sx(point[0]),H-45);ctx.stroke();ctx.setLineDash([]);if(xy&&finite(point[1])){ctx.beginPath();ctx.fillStyle='#c24e10';ctx.arc(sx(point[0]),sy(point[1]),7,0,Math.PI*2);ctx.fill();}}
+}
+function active(){return report.viewers[Number(el('episode-select').value)||0];}
+function render(){
+ const entry=active();if(!entry)return;const v=entry.values;current=Math.max(0,Math.min(current,entry.indices.length-1));el('frame-slider').value=String(current);
+ el('frame-label').textContent=`frame ${entry.indices[current]} · t=${Number(v.time_s[current]).toFixed(2)} s`;
+ el('episode-info').textContent=`${entry.source} · 原始 ${entry.original_frames} 帧 / 展示 ${entry.indices.length} 帧；图像为显示缩略图，时间按源记录播放。`;
+ el('camera-grid').replaceChildren();entry.camera_names.forEach((name,i)=>{const box=element('div',undefined,'camera'),img=element('img');img.alt=name;img.src=entry.images[current][i];box.append(img,element('p',name));el('camera-grid').append(box);});
+ const state=v.teacher_valid?.[current],lines=[`t=${Number(v.time_s[current]).toFixed(2)} s · Teacher ${state===true?'有效':state===false?'warmup / 无效':'未提供有效性标记'}`];for(const key of ['expert','teacher','adapted','commanded','executed'])if(v[key])lines.push(`${key.padEnd(11)} [${v[key][current].map(fmt).join(', ')}] m/s²`);if(v.state)lines.push(v.state_features.map((name,i)=>`${name}=${fmt(v.state[current][i])}`).join(' · '));for(const key of ['rewards','terminated','truncated','cross_track_after_m'])if(v[key])lines.push(`${key}=${v[key][current]}`);el('frame-values').textContent=lines.join('\n');
+ plot('trajectory',v.xy?[{color:'#175d85',points:v.xy}]:[],v.xy?.[current],true);
+ for(const [id,dim] of [['lateral',0],['longitudinal',1]]){const lines=[];for(const [key,color] of Object.entries(colors))if(v[key])lines.push({color,points:v.time_s.map((t,i)=>[t,v[key][i]?.[dim]??null])});plot(id,lines,[v.time_s[current],0]);}
+}
+function stop(){playing=false;clearTimeout(timer);el('play').textContent='播放';}
+function tick(){if(!playing)return;const v=active().values;if(current>=v.time_s.length-1){stop();return;}const delay=Math.max(20,(v.time_s[current+1]-v.time_s[current])*1000/Number(el('speed').value));timer=setTimeout(()=>{current++;render();tick();},delay);}
+report.viewers.forEach((entry,i)=>{const option=element('option',entry.name+' · '+entry.source);option.value=String(i);el('episode-select').append(option);});
+if(report.viewers.length){el('episode-select').addEventListener('change',()=>{stop();current=0;el('frame-slider').max=String(active().indices.length-1);render();});el('frame-slider').max=String(active().indices.length-1);el('frame-slider').addEventListener('input',()=>{stop();current=Number(el('frame-slider').value);render();});el('prev').onclick=()=>{stop();current--;render();};el('next').onclick=()=>{stop();current++;render();};el('play').onclick=()=>{if(playing){stop();return;}if(current===active().indices.length-1)current=0;playing=true;el('play').textContent='暂停';render();tick();};render();}else{el('player').classList.add('hidden');el('no-player').classList.remove('hidden');}
+</script></body></html>

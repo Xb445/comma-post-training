@@ -25,7 +25,8 @@
 
 这些是本项目新建的轻量原生基线。它们不加载 comma 官方 4B 权重，也不等于复现完整的
 openpilot 训练流水线。ONNX Teacher 的流式标签/特征缓存与冻结基座 residual head 已在
-新模块实现；用户本地已完成官方权重两帧 smoke，完整 warmup 和后训练效果仍待测。官方模型参数映射、LoRA、多卡训练、
+新模块实现；用户本地已报告 60 帧官方 v2 smoke、仿真残差改善与闭环退化，
+见 [评估与可视化指南](visualization-and-evaluation.md)。官方模型参数映射、LoRA、多卡训练、
 生产级视频流 loader 和 modeld 部署转换仍未实现。
 
 ## 一、整体结构

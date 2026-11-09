@@ -193,6 +193,15 @@ class RoadEnvironment:
         pose[:2, 3] = [self.x, self.y]
         return pose
 
+    def diagnostics(self):
+        center, slope, _, target_speed = self._reference()
+        return {
+            "cross_track_m": float((self.y - center) / np.sqrt(1 + slope**2)),
+            "target_speed_mps": target_speed,
+            "speed_error_mps": self.speed - target_speed,
+            "road_half_width_m": 5.4,
+        }
+
     def _render_camera(self, name):
         # Inverse ray/ground intersection; each camera uses its own calibrated K.
         u, v = self._pixel_grids

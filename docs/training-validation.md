@@ -1,5 +1,8 @@
 # 原生框架验证记录
 
+本轮可视化功能的 126 项回归、浏览器离线播放/移动布局和策略 trace 验证见
+[可视化验收](acceptance/visualization-20261109/README.md)。
+
 新增的官方基座仿真后训练链路记录见
 [2026-11-09 工程验收](acceptance/cloud-official-sim-20261109/README.md)：115 项测试、
 30 秒四路录制、合成 ONNX 缓存/残差训练、实时 DAgger/TD3 及重载。

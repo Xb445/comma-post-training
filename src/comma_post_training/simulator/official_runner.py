@@ -27,6 +27,7 @@ from comma_post_training.simulator.api import (
 from comma_post_training.simulator.config import ClosedLoopConfig
 from comma_post_training.simulator.runner import Replay
 from comma_post_training.simulator.td3 import TD3
+from comma_post_training.simulator.trace import evaluation_trace, pose_of
 from comma_post_training.teacher.policy import OfficialTeacherPolicy
 from comma_post_training.teacher.residual import OfficialResidualPolicy
 from comma_post_training.teacher.runtime import TeacherSession
@@ -223,7 +224,9 @@ def _clip(action, cfg):
 
 
 @torch.no_grad()
-def _evaluate(cfg, teacher, spec, model, *, agent=None, split="val", official_only=False):
+def _evaluate(
+    cfg, teacher, spec, model, *, agent=None, split="val", official_only=False, trace_dir=None
+):
     device = next(model.parameters()).device
     env = load_environment(cfg.env_factory, spec, split, cfg.env_kwargs)
     policy = OfficialTeacherPolicy(
@@ -232,54 +235,88 @@ def _evaluate(cfg, teacher, spec, model, *, agent=None, split="val", official_on
     results, profiles = [], []
     model.eval()
     try:
-        for episode in range(cfg.eval_episodes):
-            seed = cfg.eval_seed + episode + (100000 if split == "test" else 0)
-            obs = check_observation(env.reset(seed=seed), spec)
-            provenance = _provenance(env)
-            profiles.append(provenance)
-            policy.reset()
-            context = policy.observe(obs, observation_id=0)
-            total, controlled, valid_steps = 0.0, 0.0, 0
-            for number in range(1, cfg.episode_limit + 1):
-                if context.valid:
-                    base = _clip(policy.act(context, official_only=official_only), cfg)
-                    action = agent.action(context.features, base) if agent else base
-                    valid_steps += 1
-                else:
-                    action = torch.tensor(check_action(env.expert_action()), device=device)[None]
-                transition = check_transition(env.step(_clip(action, cfg)[0].cpu().numpy()), spec)
-                total += transition.reward
-                if context.valid:
-                    controlled += transition.reward
-                if transition.terminated or transition.truncated or number == cfg.episode_limit:
-                    break
-                context = policy.observe(transition.observation, observation_id=number)
-            if not valid_steps:
-                raise ValueError(
-                    "evaluation episodes end before Teacher warmup; increase the horizon"
+        with evaluation_trace(
+            trace_dir, spec, split, "official" if official_only else "td3" if agent else "residual"
+        ) as trace:
+            for episode in range(cfg.eval_episodes):
+                seed = cfg.eval_seed + episode + (100000 if split == "test" else 0)
+                obs = check_observation(env.reset(seed=seed), spec)
+                provenance = _provenance(env)
+                profiles.append(provenance)
+                if trace:
+                    trace.start(episode, seed, provenance)
+                elapsed_s = 0.0
+                policy.reset()
+                context = policy.observe(obs, observation_id=0)
+                total, controlled, valid_steps = 0.0, 0.0, 0
+                for number in range(1, cfg.episode_limit + 1):
+                    expert = (
+                        check_action(env.expert_action()) if trace or not context.valid else None
+                    )
+                    before_pose = pose_of(env) if trace else None
+                    if context.valid:
+                        base = _clip(policy.act(context, official_only=official_only), cfg)
+                        action = agent.action(context.features, base) if agent else base
+                        valid_steps += 1
+                    else:
+                        action = torch.tensor(expert, device=device)[None]
+                    transition = check_transition(
+                        env.step(_clip(action, cfg)[0].cpu().numpy()), spec
+                    )
+                    if trace:
+                        trace.append(
+                            obs,
+                            timestamp_s=elapsed_s,
+                            pose=before_pose,
+                            next_pose=pose_of(env),
+                            expert=expert.tolist(),
+                            official=context.official_action[0].cpu().tolist(),
+                            command=_clip(action, cfg)[0].cpu().tolist(),
+                            transition=transition,
+                            warmed=context.valid,
+                            truncated=transition.truncated or number == cfg.episode_limit,
+                            diagnostics=env.diagnostics() if hasattr(env, "diagnostics") else None,
+                        )
+                    elapsed_s += float(transition.observation["dt"][-1, 0])
+                    obs = transition.observation
+                    total += transition.reward
+                    if context.valid:
+                        controlled += transition.reward
+                    if transition.terminated or transition.truncated or number == cfg.episode_limit:
+                        break
+                    context = policy.observe(transition.observation, observation_id=number)
+                if not valid_steps:
+                    raise ValueError(
+                        "evaluation episodes end before Teacher warmup; increase the horizon"
+                    )
+                if trace:
+                    trace.end()
+                results.append(
+                    {
+                        "seed": seed,
+                        "scenario_id": provenance["scenario_id"],
+                        "return": total,
+                        "controlled_return": controlled,
+                        "controlled_steps": valid_steps,
+                        "steps": number,
+                        "terminated": transition.terminated,
+                        "truncated": transition.truncated or number == cfg.episode_limit,
+                    }
                 )
-            results.append(
-                {
-                    "seed": seed,
-                    "scenario_id": provenance["scenario_id"],
-                    "return": total,
-                    "controlled_return": controlled,
-                    "controlled_steps": valid_steps,
-                    "steps": number,
-                    "terminated": transition.terminated,
-                    "truncated": transition.truncated or number == cfg.episode_limit,
-                }
-            )
-        return {
-            "split": split,
-            "mean_return": float(np.mean([r["return"] for r in results])),
-            "mean_controlled_return": float(np.mean([r["controlled_return"] for r in results])),
-            "episodes": results,
-            "environments": profiles,
-            "warmup_control": "environment_expert",
-            "teacher_calls": policy.teacher_calls,
-            "end_to_end_latency_includes_rgb": True,
-        }
+            report = {
+                "split": split,
+                "mean_return": float(np.mean([r["return"] for r in results])),
+                "mean_controlled_return": float(np.mean([r["controlled_return"] for r in results])),
+                "episodes": results,
+                "environments": profiles,
+                "warmup_control": "environment_expert",
+                "teacher_calls": policy.teacher_calls,
+                "end_to_end_latency_includes_rgb": True,
+            }
+            if trace:
+                trace.finish(report)
+                report["trace_dir"] = str(trace_dir)
+            return report
     finally:
         env.close()
 
@@ -575,8 +612,16 @@ def train_official_closed_loop(cfg: OfficialConfig, *, teacher_factory=None):
 
 
 def evaluate_official_closed_loop(
-    cfg: OfficialConfig, checkpoint: Path | None = None, *, split="test", teacher_factory=None
+    cfg: OfficialConfig,
+    checkpoint: Path | None = None,
+    *,
+    split="test",
+    teacher_factory=None,
+    trace_dir: Path | None = None,
+    official_only=False,
 ):
+    if official_only and checkpoint is not None:
+        raise ValueError("choose official_only or a trained checkpoint, not both")
     torch.set_num_threads(cfg.num_threads)
     device = select_device(cfg.device)
     teacher = _new_teacher(cfg, teacher_factory)
@@ -600,4 +645,13 @@ def evaluate_official_closed_loop(
             agent = TD3(spec["teacher_feature_dim"] + spec["state_dim"] + 2, cfg, device)
             agent.actor.load_state_dict(saved["td3_actor_state"], strict=True)
             agent.actor.eval()
-    return _evaluate(cfg, teacher, spec, model, agent=agent, split=split)
+    return _evaluate(
+        cfg,
+        teacher,
+        spec,
+        model,
+        agent=agent,
+        split=split,
+        official_only=official_only,
+        trace_dir=trace_dir,
+    )

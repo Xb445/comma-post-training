@@ -247,6 +247,15 @@ def test_output_metadata_rejects_pickle_code_execution():
         decode_output_slices(outside, 100)
 
 
+def test_official_metadata_accepts_wrapped_base64_and_wraps_decode_errors():
+    slices = {"action": slice(0, 4), "hidden_state": slice(4, 516), "pad": slice(-2, None)}
+    encoded = base64.b64encode(pickle.dumps(slices)).decode()
+    wrapped = "\n".join(encoded[i : i + 60] for i in range(0, len(encoded), 60)) + "\n"
+    assert decode_output_slices(wrapped, 518)["action"] == slice(0, 4)
+    with pytest.raises(ValueError, match="invalid output_slices"):
+        decode_output_slices("invalid padding!!!", 518)
+
+
 def test_yuv_pack_matches_pinned_source_plane_order():
     rgb = np.random.default_rng(9).integers(0, 256, (16, 32, 3), dtype=np.uint8)
     yuv = cv2.cvtColor(rgb, cv2.COLOR_RGB2YUV_I420)
@@ -532,6 +541,8 @@ def test_ort_profile_reports_actual_node_provider(teacher_fixture, tmp_path):
 def test_cuda_request_rejects_runtime_silent_cpu_fallback(teacher_fixture, monkeypatch):
     path, identity = teacher_fixture
     original = ort.InferenceSession
+    preloaded = []
+    monkeypatch.setattr(ort, "preload_dlls", lambda: preloaded.append(True), raising=False)
     monkeypatch.setattr(
         ort, "get_available_providers", lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"]
     )
@@ -543,3 +554,4 @@ def test_cuda_request_rejects_runtime_silent_cpu_fallback(teacher_fixture, monke
     monkeypatch.setattr(ort, "InferenceSession", fallback)
     with pytest.raises(ValueError, match="silent CPU provider fallback"):
         TeacherSession(path, identity=identity, provider="cuda")
+    assert preloaded == [True]

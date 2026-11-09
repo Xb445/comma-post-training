@@ -1,0 +1,80 @@
+{
+  "format": "comma-user-reported-local-summary-v1",
+  "reported_date": "2026-11-09",
+  "source": {
+    "kind": "user_uploaded_text_summary",
+    "sha256": "7c5346b2b0af98ce4ae6cb10b384802ff759e44386a4bc545a9c4c6ef113247c",
+    "bytes": 7154,
+    "raw_events_images_and_checkpoints_uploaded": false
+  },
+  "tests": {
+    "passed_reported": 116,
+    "seconds_reported": 21.63
+  },
+  "teacher": {
+    "source_reported": "official weights, RTX 3090, CUDA",
+    "adapter_version": "supercombo-084747-stream-5hz-v2",
+    "frames": 60,
+    "warmed_frames": 35,
+    "reset_replayed_frames": 60,
+    "reset_reproducible": true,
+    "reset_sequence_max_abs": {
+      "action": 0.0,
+      "features": 0.0
+    },
+    "cold_first_ms": 12453.77,
+    "warmed_p50_p95_p99_ms": [
+      8.56,
+      9.41,
+      9.8
+    ],
+    "ort_profile_provider_reported": "CUDAExecutionProvider"
+  },
+  "dataset": {
+    "kind": "synthetic",
+    "routes": 4,
+    "frames": 600,
+    "sample_hz": 5,
+    "camera_size": [
+      256,
+      512
+    ],
+    "teacher_valid_frames": 500
+  },
+  "offline_residual": {
+    "training_steps": 100,
+    "initial_expert_mae_mps2": [
+      0.00379,
+      0.1178
+    ],
+    "final_expert_mae_mps2": [
+      0.00352,
+      0.0599
+    ],
+    "relative_reduction_percent": [
+      7.124010554089706,
+      49.15110356536502
+    ],
+    "initial_loss": 0.00937,
+    "final_loss": 0.003598,
+    "gate2_reported_passed": true,
+    "gate2_split": "val"
+  },
+  "online": {
+    "dagger": {
+      "environment_steps": 100,
+      "updates": 37,
+      "initial_controlled_return": -0.4092,
+      "final_controlled_return": -2.1697,
+      "delta": -1.7605000000000002
+    },
+    "td3": {
+      "environment_steps": 100,
+      "updates": 37,
+      "initial_controlled_return": -0.4092,
+      "final_controlled_return": -48.8842,
+      "delta": -48.475
+    }
+  },
+  "scope": "Summary supplied by user; no new local execution or raw-log verification in cloud; no curves or trajectories reconstructed from endpoints."
+}

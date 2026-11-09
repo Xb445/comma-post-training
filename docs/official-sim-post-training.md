@@ -7,18 +7,21 @@
 
 | 阶段 | 已交付 | 还需在你的机器完成 |
 | --- | --- | --- |
-| P0 | v2 输出解析、完整序列 reset、暖启动延迟统计、可选 ORT profile；保存本地 GPU 证据 | 用现有官方权重重新运行 v2 的 60 帧 smoke 和 profiling |
+| P0 | v2 输出解析、完整序列 reset、暖启动延迟统计、可选 ORT profile；本地已报告完成 60 帧验收 | 保留原始 inspect/smoke/profile 与环境版本供复查 |
 | P1 | 5 Hz 录制器、独立双视角投影、专家/实际动作区分、位姿、route/scenario 分组、图表 | 按目标仿真器或真实数据核实标定、左右符号和专家质量 |
-| P2 | 官方特征缓存、残差 SFT、逐 route/逐轴 MAE 与 jerk、Gate 2 | 用官方 Teacher 生成缓存并测量 held-out route 上的真实改善 |
+| P2 | 官方特征缓存、残差 SFT、逐 route/逐轴 MAE 与 jerk、Gate 2；本地已报告合成道路 val 改善 | 保留原始缓存/预测报告，扩展独立 route 和 test 验证 |
 | P3 | 实时 Teacher policy、DAgger、TD3、三组同场景评估、策略重载 | Gate 2 通过后，用官方权重运行足够预算、多 seed 和扰动评测 |
 | P4 | 保留独立扩展接口和任务路径 | 上游 Student 多任务蒸馏、官方 VAE/4B 世界模型需要独立环境与资源 |
 
 云端测试使用显式标记的 `synthetic_fixture` ONNX，复现真实输入尺寸和输出布局，
 不包含官方网络权重。你上传的本地日志证明官方权重通过身份校验并执行了两帧黑图，
-两帧尚未 warmup；[原始文件摘要与哈希](acceptance/local-rtx3090-20261106/README.md) 已保存。
+两帧尚未 warmup；[历史文件摘要与哈希](acceptance/local-rtx3090-20261106/README.md) 已保存。
+最新 [11 月 9 日本地摘要](acceptance/local-rtx3090-20261109/README.md) 已报告 60 帧 v2 CUDA
+验收、官方仿真标签、SFT 改善与闭环退化；逐帧原始产物仍在用户本地。
 这些证据不等同于驾驶行为或后训练效果验收。
 本次 115 项测试和 30 秒四路端到端实验的结果、预览与 TD3 退化记录见
 [云端工程验收](acceptance/cloud-official-sim-20261109/README.md)。
+新增 [可视化与评估指南](visualization-and-evaluation.md) 提供 report 与 evaluation trace 命令。
 
 ## P0：固定模型、环境和动作合同
 

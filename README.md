@@ -5,14 +5,15 @@
 既有原生策略/AE/Flow、DAgger/TD3 保留为研究基线。
 
 已实现固定版本 ONNX Teacher adapter、显式 RGB 标定、状态队列、特征/动作缓存、
-冻结基座残差 SFT 与组合推理接口。用户已在本地 RTX 3090 完成官方权重的两帧黑图 smoke；
-本次 v2 adapter 和后训练工程链路通过云端合成 ONNX 测试。官方权重下的 warmup、
-真实驾驶数据和后训练改善仍待本地验收，见 [证据记录](docs/acceptance/local-rtx3090-20261106/README.md)。
+冻结基座残差 SFT 与组合推理接口。用户最新本地摘要已报告 RTX 3090 上的官方 v2 Teacher
+60 帧 CUDA smoke、35 帧 warmup 后有效输出、500 个仿真标签与离线残差改善；DAgger/TD3 回报退化。
+真实驾驶数据与闭环收益仍待验证，见 [本地结果分析](docs/acceptance/local-rtx3090-20261109/README.md)。
 
 ## 从这里开始
 
 - [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。
 - [P0–P4 仿真后训练操作手册](docs/official-sim-post-training.md)：数据录制、标定、缓存、Gate 2、实时 DAgger/TD3。
+- [可视化与评估](docs/visualization-and-evaluation.md)：本地结果分析、离线 HTML 相机回放、PNG/SVG/CSV/GIF、真实策略评估 trace。
 - [完整训练说明](docs/training-framework.md)：模块结构、三条训练路径、命令、续训和闭环接口。
 - [自有数据接入合同](docs/training-data.md)：NPZ/NPY、图像索引、时间对齐、位姿和动作单位。
 - [训练配置](configs/training/)：policy、compressor、world_model、DAgger、TD3 和 learned 环境。
@@ -20,15 +21,28 @@
 - [任务表](docs/tasks/openpilot.md)：区分原生基线能力与上游真实复现任务。
 - [验证记录](docs/training-validation.md)：实际执行的链路、损失、闭环结果和适用范围。
 
-## 最小训练示例
+## 训练与可视化示例
 
-下述例子是原生小模型工程验证；官方基座流程使用上面的 `comma-teacher` 指南。
+已有实验产物可直接生成报告，不需要重新推理或训练：
+
+```bash
+# 沿用本地 CUDA 环境；图表为可选依赖
+uv pip install --python .venv-gpu/bin/python "matplotlib>=3.10,<4"
+.venv-gpu/bin/comma-driving report \
+  --manifest data/local/sim-teacher-v2/manifest.json \
+  --run-dir outputs/official-residual-sim-v2 \
+  --run-dir outputs/official-dagger-v2 --run-dir outputs/official-td3-v2 \
+  --prediction-dir outputs/official-residual-sim-v2-val \
+  --output-dir outputs/reports/local-v2 --gif
+```
+
+下面使用 CPU 环境运行原生小模型工程示例；官方基座流程见上面的 Teacher 指南。
 
 ```bash
 cd /workspace/comma-post-training
 export UV_CACHE_DIR=/workspace/.cache/uv
 export UV_SYSTEM_CERTS=true
-uv sync --locked --extra teacher --python 3.12
+uv sync --locked --extra teacher --extra visualization --python 3.12
 
 uv run --locked --offline comma-driving make-demo --output-dir data/local/demo
 uv run --locked --offline comma-driving validate-dataset data/local/demo/manifest.json
@@ -55,6 +69,7 @@ src/comma_post_training/
   engine/                            配置、损失、验证、初始化与严格离线续训
   teacher/                           官方权重校验、ONNX 流式推理、缓存与残差头
   simulator/                         环境接口、learned 环境、DAgger、残差 TD3
+  reporting/                         离线 HTML 回放、Matplotlib 图表、CSV/GIF 与结果判读
   driving/                           CLI、既有清单和轨迹指标工具
 docs/                                接入合同、训练教程、源码手册与研究路线
 third_party/                         固定版本上游源码，保持原样
@@ -87,15 +102,16 @@ uv run --locked --offline comma-driving evaluate data/examples/driving/predictio
 ## 验证与运行环境
 
 ```bash
-uv run --locked --offline --extra teacher ruff check .
-uv run --locked --offline --extra teacher ruff format --check .
-HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline --extra teacher pytest -q
+uv run --locked --offline --extra teacher --extra visualization ruff check .
+uv run --locked --offline --extra teacher --extra visualization ruff format --check .
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run --locked --offline --extra teacher --extra visualization pytest -q
 uv build
 ```
 
-当前 115 项测试通过，包含实际策略/压缩器/Flow 训练、测试集评估、冻结编码器、数据缓存、精确 CPU 续训、
+当前 126 项测试通过，包含实际策略/压缩器/Flow 训练、测试集评估、冻结编码器、数据缓存、精确 CPU 续训、
 learned 环境动作响应、DAgger 更新，以及 TD3 双 Critic/延迟更新/截断 bootstrap。
 另覆盖官方形状的合成 ONNX、完整 reset 重放、sim→cache→SFT、Gate 2 和实时 Teacher DAgger/TD3。
+可视化测试覆盖 mask/时间对齐、输入只读、缺失日志、退化判读、trace 回放与导出。
 依赖首次安装需要访问 PyPI / PyTorch CPU 索引；安装后原生合成链路可以离线运行。
 
 默认锁文件固定 CPU Torch。CUDA 原生实验与上游复现应使用独立环境，见

@@ -15,18 +15,19 @@
 | 官方权重身份 | 已从固定 Git 提交中的 LFS 指针取得 SHA256、大小 |
 | 权重下载 | 用户本地已取得并通过 SHA 校验；云端仍无权重，媒体域名访问曾返回 403 |
 | ONNX Runtime / RGB 依赖 | 已安装，支持 CPU 接口开发与测试 |
-| 原始 ONNX 流式 adapter | v2 支持真实 raw action 宽度 4 和负边界 slice；待本地重跑 |
+| 原始 ONNX 流式 adapter | 本地已报告 v2 的 60 帧完整重放与 CUDA profiling；主仓库补回 metadata 换行和 DLL 预加载兼容 |
 | 相机/状态预处理 | 已实现显式标定 RGB 入口、YUV420 平面打包、5 Hz 队列与 reset |
 | Teacher 缓存 | 已实现动作/特征/有效帧派生数据集，保留模型与预处理来源 |
 | 冻结基座残差 SFT | 已实现，只有附加 head 参与优化 |
 | 组合推理 | 已实现实时 Teacher + residual head，检查基座身份 |
 | 仿真录制 | 独立双视角 pinhole、5 Hz、专家/实际动作、位姿、分组与诊断图 |
 | 官方基座闭环 | 独立 train-official：DAgger / 冻结 SFT anchor 的 residual TD3，默认要求 Gate 2 |
-| 现有验证 | 用户本地两帧官方黑图 smoke；云端 115 项测试，不代表真实驾驶或效果验收 |
+| 现有验证 | 用户本地已报告 60 帧官方 smoke、500 个仿真标签、SFT 改善和闭环退化；原始日志未上传云端 |
 
 用户本地的四份 GPU 日志已按 [验收记录](acceptance/local-rtx3090-20261106/README.md) 保存摘要与原始哈希。
-日志对应用户修复的 v1 adapter；本次 v2 增加完整序列重放、warmup 后延迟统计和 ORT 节点 profiling。
-请使用同一官方权重重新运行 P0；模型不需要上传 GitHub。云环境配置未发布或修改。
+11 月 6 日日志对应用户修复的 v1 adapter，之后的
+[11 月 9 日本地摘要](acceptance/local-rtx3090-20261109/README.md) 已报告 v2 完整验收与初步后训练。
+模型不需要上传 GitHub。后续重点与新增可视化命令见 [评估指南](visualization-and-evaluation.md)。
 
 ## 一、模型版本与证据
 
@@ -225,8 +226,8 @@ uv run --locked --offline --extra teacher comma-teacher predict-adapted \
 5. 固定多个 seed/场景和修正范围，检查各场景收益及退化；不只依据训练 loss 判断改善。
 6. 算力与数据支持后，再接入官方 VAE/世界模型并开展闭环后训练。
 
-用户本地已完成权重身份与初步两帧推理，下一步是 v2 的完整 warmup smoke、
-仿真 episode 与 P2 对照；在可信标定驾驶片段上仍需完成第 3 步。
+用户本地最新摘要已报告完成 v2 warmup smoke、仿真 episode、P2 对照以及短预算闭环。
+下一步重点是可视化诊断闭环退化、扩大独立场景；可信标定驾驶片段仍需完成第 3 步。
 
 ## 历史云端验证记录（2026-11-06）
 

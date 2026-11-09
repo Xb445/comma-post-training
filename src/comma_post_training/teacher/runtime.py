@@ -1,6 +1,7 @@
 """Run the original ONNX graph, with explicit 5 Hz image/feature/desire history."""
 
 import base64
+import binascii
 import io
 import json
 import pickle
@@ -28,11 +29,12 @@ def decode_output_slices(encoded: str, width: int) -> dict[str, slice]:
     if type(width) is not int or width < 1:
         raise ValueError("output width must be a positive integer")
     try:
-        payload = base64.b64decode(encoded, validate=True)
+        # Official metadata may use MIME-style line-wrapped base64.
+        payload = base64.b64decode("".join(encoded.split()), validate=True)
         if len(payload) > 1024 * 1024:
             raise ValueError("oversized output_slices metadata")
         result = _SliceUnpickler(io.BytesIO(payload)).load()
-    except (pickle.UnpicklingError, EOFError, TypeError) as error:
+    except (binascii.Error, pickle.UnpicklingError, EOFError, TypeError) as error:
         raise ValueError("invalid output_slices metadata") from error
     if not isinstance(result, dict) or not result:
         raise ValueError("output_slices must be a nonempty dictionary")
@@ -78,6 +80,9 @@ class TeacherSession:
         name = "CPUExecutionProvider" if provider == "cpu" else "CUDAExecutionProvider"
         if name not in ort.get_available_providers():
             raise ValueError(f"requested {name} is unavailable; no provider fallback is assumed")
+        if provider == "cuda" and callable(getattr(ort, "preload_dlls", None)):
+            # Resolve CUDA/cuDNN bundled with Torch before ORT loads its provider.
+            ort.preload_dlls()
         options = ort.SessionOptions()
         options.intra_op_num_threads = threads
         options.inter_op_num_threads = 1

@@ -1,0 +1,13 @@
+{
+  "browser": "Chromium 155.0.8059.79",
+  "episodes": 8,
+  "figures": 20,
+  "evaluation_rows": 10,
+  "cameras": 2,
+  "slider_and_episode_switch": "passed",
+  "offline_playback": "passed",
+  "desktop_and_mobile": "passed",
+  "page_errors": [],
+  "external_http_requests": 0,
+  "scope": "CPU synthetic ONNX and procedural road demonstration, not user local GPU artifacts"
+}

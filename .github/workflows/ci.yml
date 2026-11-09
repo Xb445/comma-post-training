@@ -14,9 +14,9 @@ jobs:
         with:
           version: "0.13.4"
           enable-cache: true
-      - run: uv sync --locked --extra teacher --python 3.12
-      - run: uv run --locked --extra teacher ruff check .
-      - run: uv run --locked --extra teacher ruff format --check .
-      - run: uv run --locked --extra teacher python scripts/verify_sources.py --metadata-only
-      - run: uv run --locked --extra teacher pytest -q
+      - run: uv sync --locked --extra teacher --extra visualization --python 3.12
+      - run: uv run --locked --extra teacher --extra visualization ruff check .
+      - run: uv run --locked --extra teacher --extra visualization ruff format --check .
+      - run: uv run --locked --extra teacher --extra visualization python scripts/verify_sources.py --metadata-only
+      - run: uv run --locked --extra teacher --extra visualization pytest -q
       - run: uv build

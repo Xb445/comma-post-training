@@ -21,6 +21,19 @@ def main() -> None:
     demo = commands.add_parser("make-demo", help="generate an explicitly synthetic episode dataset")
     demo.add_argument("--output-dir", type=Path, required=True)
     demo.add_argument("--frames", type=int, default=24)
+    report = commands.add_parser("report", help="offline HTML playback, PNG/SVG, CSV and metrics")
+    report.add_argument("--output-dir", type=Path, required=True)
+    report.add_argument("--manifest", type=Path)
+    report.add_argument("--run-dir", type=Path, action="append", default=[])
+    report.add_argument("--prediction-dir", type=Path, action="append", default=[])
+    report.add_argument("--trace-dir", type=Path, action="append", default=[])
+    report.add_argument("--smoke", type=Path)
+    report.add_argument("--max-episodes", type=int, default=4)
+    report.add_argument("--max-frames", type=int, default=150)
+    report.add_argument("--image-width", type=int, default=384)
+    report.add_argument(
+        "--gif", action="store_true", help="also export sampled dataset camera GIFs"
+    )
     recorded = commands.add_parser(
         "record-sim", help="record calibrated simulator episodes at 5 Hz"
     )
@@ -48,6 +61,12 @@ def main() -> None:
         else:
             official.add_argument("--checkpoint", type=Path)
             official.add_argument("--split", choices=("val", "test"), default="test")
+            official.add_argument(
+                "--trace-dir", type=Path, help="record actual evaluation frames/actions"
+            )
+            official.add_argument(
+                "--official-only", action="store_true", help="evaluate the frozen official model"
+            )
     imported = commands.add_parser(
         "import-npz", help="import already aligned numeric episode arrays"
     )
@@ -118,6 +137,21 @@ def main() -> None:
                 "manifest": str(create_demo(args.output_dir, frames=args.frames)),
                 "kind": "synthetic",
             }
+        elif args.command == "report":
+            from comma_post_training.reporting.report import build_report
+
+            result = build_report(
+                args.output_dir,
+                manifest=args.manifest,
+                run_dirs=args.run_dir,
+                prediction_dirs=args.prediction_dir,
+                smoke=args.smoke,
+                trace_dirs=args.trace_dir,
+                max_episodes=args.max_episodes,
+                max_frames=args.max_frames,
+                image_width=args.image_width,
+                gif=args.gif,
+            )
         elif args.command == "record-sim":
             from comma_post_training.simulator.recorder import record_simulation
 
@@ -153,7 +187,13 @@ def main() -> None:
                     changes["engineering_only"] = True
                 result = train_official_closed_loop(replace(config, **changes))
             else:
-                result = evaluate_official_closed_loop(config, args.checkpoint, split=args.split)
+                result = evaluate_official_closed_loop(
+                    config,
+                    args.checkpoint,
+                    split=args.split,
+                    trace_dir=args.trace_dir,
+                    official_only=args.official_only,
+                )
         elif args.command == "validate-dataset":
             from comma_post_training.data_pipeline.episodes import Catalogue
 

@@ -132,6 +132,58 @@ def test_online_context_is_once_per_observation_and_resets_every_episode(pipelin
         policy.observe(obs, observation_id=1)
 
 
+def test_evaluation_trace_records_actual_observations_without_changing_rollout(pipeline, tmp_path):
+    spec = pipeline["spec"]
+    cfg = online_config(pipeline, tmp_path / "unused")
+    expected = evaluate_official_closed_loop(cfg, split="val", teacher_factory=pipeline["factory"])
+    trace = tmp_path / "trace"
+    actual = evaluate_official_closed_loop(
+        cfg, split="val", teacher_factory=pipeline["factory"], trace_dir=trace
+    )
+    assert actual["episodes"] == expected["episodes"]
+    document = json.loads((trace / "trace.json").read_text())
+    recorded = document["episodes"][0]
+    rows = json.loads((trace / recorded["steps"]).read_text())["steps"]
+    assert len(rows) == actual["episodes"][0]["steps"]
+    assert all(not row["teacher_warmed"] for row in rows[:25])
+    assert rows[25]["teacher_warmed"]
+    assert rows[-1]["truncated"]
+    assert all(len(row["images"]) == 2 for row in rows)
+    assert all((trace / path).is_file() for row in rows for path in row["images"])
+    env = RoadEnvironment(spec=spec, split="val", horizon=34)
+    env.reset(seed=cfg.eval_seed)
+    np.testing.assert_allclose(rows[0]["pose"], env.current_pose())
+    for row in rows:
+        np.testing.assert_allclose(row["expert_action"], env.expert_action(), rtol=1e-6)
+        transition = env.step(row["commanded_action"])
+        np.testing.assert_allclose(row["achieved_action"], transition.achieved_action)
+        np.testing.assert_allclose(row["next_pose"], env.current_pose())
+    with pytest.raises(ValueError, match="empty"):
+        evaluate_official_closed_loop(
+            cfg, split="val", teacher_factory=pipeline["factory"], trace_dir=trace
+        )
+
+
+def test_evaluation_trace_generates_policy_playback_and_reached_state_figures(pipeline, tmp_path):
+    pytest.importorskip("matplotlib", reason="install the visualization extra")
+    from comma_post_training.reporting.report import build_report
+
+    cfg = online_config(pipeline, tmp_path / "unused")
+    trace = tmp_path / "trace"
+    evaluate_official_closed_loop(
+        cfg, split="val", teacher_factory=pipeline["factory"], trace_dir=trace
+    )
+    output = tmp_path / "report"
+    report = build_report(output, trace_dirs=[trace], max_episodes=1, max_frames=3, image_width=64)
+    assert report["viewer_episodes"] == 1
+    assert report["figures"] == 2
+    summary = json.loads((output / "summary.json").read_text())
+    evaluation = summary["evaluation_traces"][0]["evaluation"]
+    assert evaluation["controlled_steps"] == 9
+    assert evaluation["truncated"] == 1
+    assert "cross-track after step" in (output / "figures/trace-00-000-diagnostics.svg").read_text()
+
+
 def online_config(pipeline, output, algorithm="dagger"):
     return OfficialConfig(
         algorithm,

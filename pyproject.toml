@@ -21,6 +21,9 @@ teacher = [
     "onnxruntime>=1.20,<2",
     "opencv-python-headless>=4.10,<5",
 ]
+visualization = [
+    "matplotlib>=3.10,<4",
+]
 
 [project.scripts]
 comma-train = "comma_post_training.cli:main"
