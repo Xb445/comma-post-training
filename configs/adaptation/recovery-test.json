@@ -1,0 +1,189 @@
+{
+  "format": "comma-recovery-suite-v1",
+  "name": "source-target-recovery-test-v1",
+  "split": "test",
+  "horizon": 150,
+  "warmup_steps": 25,
+  "recovery": {
+    "cross_track_m": 0.3,
+    "heading_error_rad": 0.05,
+    "speed_error_mps": 0.5,
+    "hold_steps": 5
+  },
+  "cases": [
+    {
+      "id": "source-nominal-210",
+      "scenario": "source-nominal",
+      "group": "nominal",
+      "domain": "source",
+      "seed": 210,
+      "env_kwargs": {}
+    },
+    {
+      "id": "target-nominal-210",
+      "scenario": "target-nominal",
+      "group": "nominal",
+      "domain": "target",
+      "seed": 210,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1
+      }
+    },
+    {
+      "id": "target-lateral-210",
+      "scenario": "target-lateral",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 210,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "lateral_perturb_m": 0.8
+      }
+    },
+    {
+      "id": "target-heading-210",
+      "scenario": "target-heading",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 210,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "heading_perturb_rad": 0.08
+      }
+    },
+    {
+      "id": "target-speed-210",
+      "scenario": "target-speed",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 210,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "speed_perturb_mps": -1.5
+      }
+    },
+    {
+      "id": "source-nominal-211",
+      "scenario": "source-nominal",
+      "group": "nominal",
+      "domain": "source",
+      "seed": 211,
+      "env_kwargs": {}
+    },
+    {
+      "id": "target-nominal-211",
+      "scenario": "target-nominal",
+      "group": "nominal",
+      "domain": "target",
+      "seed": 211,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1
+      }
+    },
+    {
+      "id": "target-lateral-211",
+      "scenario": "target-lateral",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 211,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "lateral_perturb_m": 0.8
+      }
+    },
+    {
+      "id": "target-heading-211",
+      "scenario": "target-heading",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 211,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "heading_perturb_rad": 0.08
+      }
+    },
+    {
+      "id": "target-speed-211",
+      "scenario": "target-speed",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 211,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "speed_perturb_mps": -1.5
+      }
+    },
+    {
+      "id": "source-nominal-212",
+      "scenario": "source-nominal",
+      "group": "nominal",
+      "domain": "source",
+      "seed": 212,
+      "env_kwargs": {}
+    },
+    {
+      "id": "target-nominal-212",
+      "scenario": "target-nominal",
+      "group": "nominal",
+      "domain": "target",
+      "seed": 212,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1
+      }
+    },
+    {
+      "id": "target-lateral-212",
+      "scenario": "target-lateral",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 212,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "lateral_perturb_m": 0.8
+      }
+    },
+    {
+      "id": "target-heading-212",
+      "scenario": "target-heading",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 212,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "heading_perturb_rad": 0.08
+      }
+    },
+    {
+      "id": "target-speed-212",
+      "scenario": "target-speed",
+      "group": "recovery",
+      "domain": "target",
+      "seed": 212,
+      "env_kwargs": {
+        "visual_profile": "dusk",
+        "control_delay_steps": 1,
+        "perturb_at_step": 25,
+        "speed_perturb_mps": -1.5
+      }
+    }
+  ]
+}

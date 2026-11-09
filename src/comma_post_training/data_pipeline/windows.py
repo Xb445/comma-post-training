@@ -34,6 +34,7 @@ class EpisodeWindows(Dataset):
         anchors: tuple[int, ...] = (2, 3),
         plan_steps: int = 3,
         supervision: tuple[str, ...] = ("expert",),
+        inference: bool = False,
     ):
         self.catalogue, self.task, self.history = catalogue, task, history
         self.image_size, self.stride = image_size, stride
@@ -57,7 +58,7 @@ class EpisodeWindows(Dataset):
             times = episode.array("timestamps")
             valid = episode.array("valid") if "valid" in episode.paths else np.ones(n, dtype=bool)
             target_valid = np.ones(n, dtype=bool)
-            if task in ("policy", "official_residual"):
+            if task in ("policy", "official_residual") and not inference:
                 target_valid[:] = False
                 for source in supervision:
                     if source + "_actions" in episode.paths:

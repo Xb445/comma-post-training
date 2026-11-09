@@ -1,5 +1,9 @@
 # 原生框架验证记录
 
+最新的新环境适配框架、142 项测试、空间 Student/DAgger/TD3、固定恢复 suite 和
+浏览器报告验收见 [新环境适配验收](acceptance/adaptation-20261109/README.md)。
+该记录明确保留未通过性能准入的短预算结果；只验收工程链路。
+
 本轮可视化功能的 126 项回归、浏览器离线播放/移动布局和策略 trace 验证见
 [可视化验收](acceptance/visualization-20261109/README.md)。
 

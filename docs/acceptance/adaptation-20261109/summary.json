@@ -1,0 +1,312 @@
+{
+  "format": "comma-adaptation-acceptance-v1",
+  "scope": "CPU engineering validation only; synthetic ONNX fixture and procedural roads; no real driving or official GPU training claim",
+  "environment": {
+    "python": "3.12.14",
+    "torch": "2.15.0+cpu",
+    "numpy": "2.5.4",
+    "onnxruntime": "1.31.1",
+    "cuda_available": false
+  },
+  "source_sha256": "f2cd66cf87171a45cdfb74d90823188a153c95632b4b7654bcc537db5e4e9c65",
+  "teacher_identity": {
+    "kind": "synthetic_fixture",
+    "commit": "local-test-graph",
+    "sha256": "f287db678a3f67c1050aea9b02ef842f8b2ca9981283b9e9c3f91d2d8ddd628c",
+    "adapter_version": "supercombo-084747-stream-5hz-v2",
+    "feature_dim": 512,
+    "action_semantics": "unsmoothed_network_a_lat_a_long_mps2",
+    "action_layout": {
+      "raw_width": 4,
+      "mean_indices": [
+        0,
+        1
+      ],
+      "auxiliary_indices": [
+        2,
+        3
+      ],
+      "auxiliary_semantics": "not_used_for_control"
+    }
+  },
+  "recorded": {
+    "domains": 2,
+    "routes_per_domain": 4,
+    "frames_per_route": 40,
+    "hz": 5
+  },
+  "audits": {
+    "student_ready": true,
+    "world_structurally_ready": true,
+    "fixture_rejected_as_official": true
+  },
+  "student": {
+    "source_steps": 16,
+    "target_steps": 16,
+    "spatial_pool": [
+      2,
+      4
+    ],
+    "image_size_hw": [
+      32,
+      64
+    ],
+    "history": 4,
+    "source_val_loss": 0.10706351012125745,
+    "target_val_loss": 0.007540589189031036,
+    "target_visual_encoder_trainable": true,
+    "independent_inference": true,
+    "predicted_frames": 37,
+    "per_route": {
+      "road-val-1044-2854b17ac8bd": {
+        "frames": 37,
+        "expert_frames": 37,
+        "teacher_frames": 15,
+        "teacher_expert_frames": 15,
+        "teacher_mae_mps2": [
+          0.5314669092806678,
+          0.5127860508859158
+        ],
+        "adapted_mae_mps2": [
+          0.09941157618084469,
+          0.04741492039347823
+        ],
+        "paired_adapted_mae_mps2": [
+          0.09762988689665993,
+          0.003721228986978531
+        ],
+        "saturation_fraction": null,
+        "teacher_jerk_rms_mps3": [
+          4.372563242579693e-05,
+          4.372563242579693e-05
+        ],
+        "adapted_jerk_rms_mps3": [
+          0.0018447722823598679,
+          0.0014047910290193777
+        ],
+        "jerk_elapsed_s": 7.2
+      }
+    }
+  },
+  "online": {
+    "dagger": {
+      "steps": 80,
+      "updates": 73,
+      "actor_updates": 0,
+      "expert_queries_train": 80,
+      "training_wall_s": 2.69052596000256
+    },
+    "td3": {
+      "steps": 80,
+      "updates": 73,
+      "actor_updates": 32,
+      "expert_queries_train": 80,
+      "training_wall_s": 2.035078451037407
+    }
+  },
+  "benchmarks": {
+    "sft": {
+      "episodes": 15,
+      "summary": {
+        "all": {
+          "episodes": 15,
+          "terminations": 0,
+          "mean_controlled_return": -3.0824389156450773,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.6034136120884455,
+          "heading_mae_rad": 0.04917663453417613,
+          "speed_mae_mps": 0.4033118017229551,
+          "recovery_time_s": null
+        },
+        "nominal": {
+          "episodes": 6,
+          "terminations": 0,
+          "mean_controlled_return": -0.46547444954595835,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": null,
+          "recovery_cases": 0,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.2460077107800629,
+          "heading_mae_rad": 0.030770040619113887,
+          "speed_mae_mps": 0.17578702585380476,
+          "recovery_time_s": null
+        },
+        "recovery": {
+          "episodes": 9,
+          "terminations": 0,
+          "mean_controlled_return": -4.827081893044489,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.8416842129607004,
+          "heading_mae_rad": 0.06144769714421763,
+          "speed_mae_mps": 0.5549949856357219,
+          "recovery_time_s": null
+        }
+      }
+    },
+    "dagger": {
+      "episodes": 15,
+      "summary": {
+        "all": {
+          "episodes": 15,
+          "terminations": 0,
+          "mean_controlled_return": -1.5080575138208872,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.36943241375771174,
+          "heading_mae_rad": 0.02233307371945358,
+          "speed_mae_mps": 0.43214819621185174,
+          "recovery_time_s": null
+        },
+        "nominal": {
+          "episodes": 6,
+          "terminations": 0,
+          "mean_controlled_return": -0.042852161761127945,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": null,
+          "recovery_cases": 0,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.06370193218097282,
+          "heading_mae_rad": 0.007915789523120463,
+          "speed_mae_mps": 0.1251656667343051,
+          "recovery_time_s": null
+        },
+        "recovery": {
+          "episodes": 9,
+          "terminations": 0,
+          "mean_controlled_return": -2.4848610818607266,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.573252734808871,
+          "heading_mae_rad": 0.03194459651700899,
+          "speed_mae_mps": 0.6368032158635495,
+          "recovery_time_s": null
+        }
+      }
+    },
+    "td3": {
+      "episodes": 15,
+      "summary": {
+        "all": {
+          "episodes": 15,
+          "terminations": 0,
+          "mean_controlled_return": -3.0398191465770297,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.597413061812282,
+          "heading_mae_rad": 0.048400958298533824,
+          "speed_mae_mps": 0.4024480946553858,
+          "recovery_time_s": null
+        },
+        "nominal": {
+          "episodes": 6,
+          "terminations": 0,
+          "mean_controlled_return": -0.4426758559176271,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": null,
+          "recovery_cases": 0,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.23979965752709154,
+          "heading_mae_rad": 0.030025609262789795,
+          "speed_mae_mps": 0.1729533432735101,
+          "recovery_time_s": null
+        },
+        "recovery": {
+          "episodes": 9,
+          "terminations": 0,
+          "mean_controlled_return": -4.771248007016631,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 0.835821998002409,
+          "heading_mae_rad": 0.06065119098902985,
+          "speed_mae_mps": 0.5554445955766361,
+          "recovery_time_s": null
+        }
+      }
+    },
+    "fixture_teacher": {
+      "episodes": 15,
+      "summary": {
+        "all": {
+          "episodes": 15,
+          "terminations": 3,
+          "mean_controlled_return": -32.086145612804465,
+          "mean_controlled_steps": 19.8,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 1.789210593872325,
+          "heading_mae_rad": 0.17861296119383438,
+          "speed_mae_mps": 0.9647700344195436,
+          "recovery_time_s": null
+        },
+        "nominal": {
+          "episodes": 6,
+          "terminations": 0,
+          "mean_controlled_return": -19.178139761809927,
+          "mean_controlled_steps": 20.0,
+          "recovery_rate": null,
+          "recovery_cases": 0,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 1.5724381650073198,
+          "heading_mae_rad": 0.16502460562267937,
+          "speed_mae_mps": 1.110072619682925,
+          "recovery_time_s": null
+        },
+        "recovery": {
+          "episodes": 9,
+          "terminations": 3,
+          "mean_controlled_return": -40.691482846800824,
+          "mean_controlled_steps": 19.666666666666668,
+          "recovery_rate": 0.0,
+          "recovery_cases": 9,
+          "recovered_episodes": 0,
+          "cross_track_mae_m": 1.9337255464489955,
+          "heading_mae_rad": 0.18767186490793766,
+          "speed_mae_mps": 0.8679016442439556,
+          "recovery_time_s": null
+        }
+      }
+    }
+  },
+  "promotion": {
+    "dagger": {
+      "passed": false,
+      "failed_checks": [
+        "('target-heading', 'target'):speed_mae_mps",
+        "('target-lateral', 'target'):speed_mae_mps",
+        "('target-nominal', 'target'):speed_mae_mps",
+        "('target-speed', 'target'):speed_mae_mps",
+        "recovery_rate"
+      ],
+      "weights_modified": false
+    },
+    "td3": {
+      "passed": false,
+      "failed_checks": [
+        "recovery_rate",
+        "measured_recovery_improvement"
+      ],
+      "weights_modified": false
+    }
+  },
+  "visualization": {
+    "figures": 22,
+    "viewer_episodes": 6,
+    "read_only_inputs": true
+  },
+  "report_relative_to_repository": "outputs/acceptance/adaptation-20261109/report/index.html"
+}

@@ -178,6 +178,16 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
     torch.manual_seed(config.training.seed)
     catalogue = Catalogue(config.data.manifest)
     quality = catalogue.validate()
+    if config.data.require_official_teacher:
+        from comma_post_training.teacher.assets import OFFICIAL
+
+        identity = quality["signature"].get("teacher_identity", {})
+        if (
+            identity.get("kind") != "official"
+            or identity.get("sha256") != OFFICIAL.sha256
+            or identity.get("commit") != OFFICIAL.commit
+        ):
+            raise ValueError("require_official_teacher needs the verified official Teacher cache")
     training = make_windows(config, catalogue, "train")
     validation = make_windows(config, catalogue, "val")
     if config.task in ("policy", "official_residual"):
@@ -216,6 +226,9 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
         if architecture(initialized["model_spec"]) != architecture(spec):
             raise ValueError("initial checkpoint architecture/data contract differs from this run")
         model.load_state_dict(initialized["model_state"], strict=True)
+        if config.task == "policy" and not spec.get("distillation_teacher_identity"):
+            if identity := initialized["model_spec"].get("distillation_teacher_identity"):
+                spec["distillation_teacher_identity"] = identity
     if previous is not None:
         if previous["resume_signature"] != signature:
             raise ValueError(
@@ -352,6 +365,14 @@ def train(config: RunConfig, *, resume: Path | None = None) -> dict:
             post_training_mode="offline_supervised_residual",
             trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
         )
+    if config.task == "policy":
+        report.update(
+            teacher_identity=spec.get("distillation_teacher_identity"),
+            base_frozen=False,
+            teacher_dependency_at_inference=False,
+            visual_encoder_trainable=any(p.requires_grad for p in model.encoder.parameters()),
+            post_training_mode="trainable_visual_student",
+        )
     atomic_json(output / "metrics.json", report)
     return report
 
@@ -378,6 +399,10 @@ def evaluate(
     quality = catalogue.validate()
     dataset = make_windows(config, catalogue, split, evaluation=True)
     spec = build_spec(config, quality["signature"], dataset)
+    if config.task == "policy" and "distillation_teacher_identity" in saved["model_spec"]:
+        spec.setdefault(
+            "distillation_teacher_identity", saved["model_spec"]["distillation_teacher_identity"]
+        )
     if spec != saved["model_spec"]:
         raise ValueError("evaluation input/latent contract differs from checkpoint")
     model = build_model(spec).to(device)
@@ -414,6 +439,8 @@ def config_from_dict(document: dict) -> RunConfig:
         model["init_checkpoint"] = Path(model["init_checkpoint"])
     if "residual_scale" in model:
         model["residual_scale"] = tuple(model["residual_scale"])
+    if "vision_pool" in model:
+        model["vision_pool"] = tuple(model["vision_pool"])
     world = dict(document["world"])
     world["anchor_offsets"] = tuple(world["anchor_offsets"])
     return RunConfig(

@@ -27,6 +27,7 @@ def main() -> None:
     report.add_argument("--run-dir", type=Path, action="append", default=[])
     report.add_argument("--prediction-dir", type=Path, action="append", default=[])
     report.add_argument("--trace-dir", type=Path, action="append", default=[])
+    report.add_argument("--benchmark-dir", type=Path, action="append", default=[])
     report.add_argument("--smoke", type=Path)
     report.add_argument("--max-episodes", type=int, default=4)
     report.add_argument("--max-frames", type=int, default=150)
@@ -79,6 +80,39 @@ def main() -> None:
     register.add_argument("--kind", choices=("recorded", "synthetic"), default="recorded")
     dataset = commands.add_parser("validate-dataset", help="validate a native training dataset")
     dataset.add_argument("path", type=Path)
+    combined = commands.add_parser(
+        "combine-datasets", help="compose source/target replay without copying arrays"
+    )
+    combined.add_argument("--manifest", type=Path, action="append", required=True)
+    combined.add_argument("--output-dir", type=Path, required=True)
+    combined.add_argument("--revision", required=True)
+    audit = commands.add_parser(
+        "audit-dataset", help="check Student/world adaptation data readiness"
+    )
+    audit.add_argument("--manifest", type=Path, required=True)
+    audit.add_argument("--stage", choices=("student", "world"), default="student")
+    audit.add_argument("--history", type=int, default=4)
+    audit.add_argument("--future-steps", type=int, default=3)
+    audit.add_argument("--require-official-teacher", action="store_true")
+    audit.add_argument("--output", type=Path, required=True)
+    prediction = commands.add_parser("predict-policy", help="independent visual Student inference")
+    prediction.add_argument("--manifest", type=Path, required=True)
+    prediction.add_argument("--checkpoint", type=Path, required=True)
+    prediction.add_argument("--output-dir", type=Path, required=True)
+    prediction.add_argument("--split", choices=("val", "test"), default="val")
+    prediction.add_argument("--device", choices=("cpu", "cuda", "auto"), default="cpu")
+    benchmark = commands.add_parser("benchmark", help="fixed seeded nominal/recovery evaluations")
+    benchmark.add_argument("--suite", type=Path, required=True)
+    benchmark.add_argument("--output-dir", type=Path, required=True)
+    benchmark.add_argument("--checkpoint", type=Path)
+    benchmark.add_argument("--official-config", type=Path)
+    benchmark.add_argument("--official-only", action="store_true")
+    benchmark.add_argument("--record-traces", action="store_true")
+    benchmark.add_argument("--device", choices=("cpu", "cuda", "auto"))
+    promotion = commands.add_parser("compare-benchmarks", help="paired val model-selection gate")
+    promotion.add_argument("--baseline", type=Path, required=True)
+    promotion.add_argument("--candidate", type=Path, required=True)
+    promotion.add_argument("--output", type=Path, required=True)
     training = commands.add_parser(
         "train", help="train native models or a residual head over cached frozen Teacher features"
     )
@@ -147,6 +181,7 @@ def main() -> None:
                 prediction_dirs=args.prediction_dir,
                 smoke=args.smoke,
                 trace_dirs=args.trace_dir,
+                benchmark_dirs=args.benchmark_dir,
                 max_episodes=args.max_episodes,
                 max_frames=args.max_frames,
                 image_width=args.image_width,
@@ -198,6 +233,47 @@ def main() -> None:
             from comma_post_training.data_pipeline.episodes import Catalogue
 
             result = Catalogue(args.path).validate()
+        elif args.command == "audit-dataset":
+            from comma_post_training.data_pipeline.audit import audit_dataset
+
+            result = audit_dataset(
+                args.manifest,
+                stage=args.stage,
+                history=args.history,
+                future_steps=args.future_steps,
+                require_official_teacher=args.require_official_teacher,
+                output=args.output,
+            )
+        elif args.command == "combine-datasets":
+            from comma_post_training.data_pipeline.combine import combine_datasets
+
+            result = combine_datasets(args.manifest, args.output_dir, revision=args.revision)
+        elif args.command == "predict-policy":
+            from comma_post_training.driving_policy.predict import predict_policy
+
+            result = predict_policy(
+                args.manifest,
+                args.checkpoint,
+                args.output_dir,
+                split=args.split,
+                device=args.device,
+            )
+        elif args.command == "benchmark":
+            from comma_post_training.simulator.benchmark import run_benchmark
+
+            result = run_benchmark(
+                args.suite,
+                args.output_dir,
+                checkpoint=args.checkpoint,
+                official_config=args.official_config,
+                official_only=args.official_only,
+                record_traces=args.record_traces,
+                device=args.device,
+            )
+        elif args.command == "compare-benchmarks":
+            from comma_post_training.simulator.benchmark import compare_benchmarks
+
+            result = compare_benchmarks(args.baseline, args.candidate, args.output)
         elif args.command == "import-npz":
             from comma_post_training.data_pipeline.prepare import import_npz
 
@@ -273,5 +349,12 @@ def main() -> None:
                     changes["steps"] = args.steps
                 result = train_closed_loop(replace(config, **changes))
         print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
-    except (OSError, ValueError) as error:
+        if (
+            args.command == "audit-dataset"
+            and not result["ready"]
+            or args.command == "compare-benchmarks"
+            and not result["passed"]
+        ):
+            parser.exit(1)
+    except (OSError, ValueError, RuntimeError) as error:
         parser.exit(2, f"error: {error}\n")

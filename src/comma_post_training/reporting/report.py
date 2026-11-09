@@ -137,8 +137,9 @@ def _data_viewers(
             teacher_valid = np.zeros(len(adapted), dtype=bool)
             for row in matches[0]:
                 adapted[row["frame"]] = row["adapted_action"]
-                teacher[row["frame"]] = row["teacher_action"]
-                teacher_valid[row["frame"]] = True
+                if "teacher_action" in row:
+                    teacher[row["frame"]] = row["teacher_action"]
+                    teacher_valid[row["frame"]] = True
             values["adapted"] = adapted
             if "teacher" not in values:
                 values["teacher"], values["teacher_valid"] = teacher, teacher_valid
@@ -213,9 +214,21 @@ def _trace_viewers(paths, figures, root, max_episodes, max_frames, width):
                 ("terminated", "terminated"),
                 ("truncated", "truncated"),
             ):
-                values[key] = np.array([row[source] for row in rows])
+                values[key] = np.array(
+                    [
+                        [np.nan, np.nan]
+                        if source == "official_action" and row.get(source) is None
+                        else row[source]
+                        for row in rows
+                    ]
+                )
             values["teacher"] = values["teacher"].astype(float)
             values["teacher"][~values["teacher_valid"]] = np.nan
+            if all(row.get("official_action") is None for row in rows):
+                values.pop("teacher")
+                values.pop("teacher_valid")
+            if all("policy_controlled" in row for row in rows):
+                values["policy_controlled"] = np.array([row["policy_controlled"] for row in rows])
             if all(row.get("pose") is not None for row in rows):
                 values["xy"] = np.array([row["pose"] for row in rows])[:, :2, 3]
             if all(isinstance(row.get("diagnostics_after_step"), dict) for row in rows):
@@ -262,6 +275,7 @@ def build_report(
     prediction_dirs=(),
     smoke: Path | None = None,
     trace_dirs=(),
+    benchmark_dirs=(),
     max_episodes=4,
     max_frames=150,
     image_width=384,
@@ -274,7 +288,7 @@ def build_report(
     ):
         if type(value) is not int or value < minimum:
             raise ValueError(f"{name} must be an integer >={minimum}")
-    if not (manifest or run_dirs or prediction_dirs or smoke or trace_dirs):
+    if not (manifest or run_dirs or prediction_dirs or smoke or trace_dirs or benchmark_dirs):
         raise ValueError("provide at least one dataset, run, prediction, smoke or evaluation trace")
     from comma_post_training.reporting.plots import Figures
 
@@ -285,6 +299,9 @@ def build_report(
         references = {ref.id: Episode(ref) for ref in catalogue.episodes}
     runs = [load_run(path) for path in run_dirs]
     predictions = [load_predictions(path, references) for path in prediction_dirs]
+    benchmarks = [read_json(path / "metrics.json") for path in benchmark_dirs]
+    if any(report.get("format") != "comma-policy-benchmark-v1" for report in benchmarks):
+        raise ValueError("benchmark-dir requires comma-policy-benchmark-v1 metrics")
     smoke_report = read_json(smoke) if smoke else None
     with staged_directory(output) as staging:
         figures = Figures(staging / "figures")
@@ -316,6 +333,19 @@ def build_report(
         for number, prediction in enumerate(predictions):
             figures.prediction(prediction, f"prediction-{number:02d}")
             _csv(staging / f"predictions-{number:02d}.csv", prediction["rows"])
+        for number, benchmark in enumerate(benchmarks):
+            figures.benchmark(benchmark, f"benchmark-{number:02d}")
+            _csv(
+                staging / f"benchmark-{number:02d}.csv",
+                [
+                    {
+                        **row["case"],
+                        **{key: value for key, value in row.items() if key != "case"},
+                        **row["reached_state"],
+                    }
+                    for row in benchmark["cases"]
+                ],
+            )
         inputs = [
             path
             for path in [
@@ -336,6 +366,7 @@ def build_report(
                     if (p / name).exists()
                 ],
                 *[p / "trace.json" for p in trace_dirs],
+                *[p / "metrics.json" for p in benchmark_dirs],
             ]
             if path
         ]
@@ -349,6 +380,7 @@ def build_report(
             ],
             "teacher_smoke": smoke_report,
             "evaluation_traces": trace_summary,
+            "benchmarks": benchmarks,
             "inputs": [
                 {"path": str(path.resolve()), "sha256": file_sha256(path)} for path in inputs
             ],

@@ -34,10 +34,15 @@ class ClosedLoopConfig:
     tau: float = 0.005
     policy_delay: int = 2
     residual_penalty: float = 0.001
+    actor_warmup_updates: int = 0
+    actor_bc_weight: float = 0.0
+    actor_smoothness_weight: float = 0.0
 
     def __post_init__(self):
         if self.algorithm not in ("dagger", "td3"):
             raise ValueError("algorithm must be dagger or td3")
+        if type(self.actor_warmup_updates) is not int or self.actor_warmup_updates < 0:
+            raise ValueError("actor_warmup_updates must be a nonnegative integer")
         if self.device not in ("cpu", "cuda", "auto"):
             raise ValueError("device must be cpu, cuda, or auto")
         for name in (
@@ -74,6 +79,8 @@ class ClosedLoopConfig:
             "offline_fraction",
             "expert_mix",
             "residual_penalty",
+            "actor_bc_weight",
+            "actor_smoothness_weight",
         ):
             value = getattr(self, name)
             if (

@@ -7,6 +7,7 @@ class DrivingPolicy(nn.Module):
         super().__init__()
         self.spec = spec
         width, hidden = spec["vision_channels"], spec["hidden_size"]
+        pool = tuple(spec.get("vision_pool", (1, 1)))
         self.encoder = nn.Sequential(
             nn.Conv2d(3, width, 3, stride=2, padding=1),
             nn.GroupNorm(1, width),
@@ -14,10 +15,10 @@ class DrivingPolicy(nn.Module):
             nn.Conv2d(width, width * 2, 3, stride=2, padding=1),
             nn.GroupNorm(1, width * 2),
             nn.SiLU(),
-            nn.AdaptiveAvgPool2d(1),
+            nn.AdaptiveAvgPool2d(pool),
             nn.Flatten(),
         )
-        fused = width * 2 * spec["cameras"] + spec["state_dim"] + 3
+        fused = width * 2 * pool[0] * pool[1] * spec["cameras"] + spec["state_dim"] + 3
         self.fusion = nn.Sequential(nn.Linear(fused, hidden), nn.SiLU())
         self.temporal = nn.GRU(hidden, hidden, batch_first=True)
         self.action_head = nn.Linear(hidden, 2)

@@ -38,6 +38,11 @@ def build_spec(config: RunConfig, signature: dict, dataset) -> dict:
             teacher_feature_dim=dataset.teacher_feature_dim,
             residual_scale=list(config.model.residual_scale),
         )
+    if config.task == "policy":
+        if tuple(config.model.vision_pool) != (1, 1):
+            spec["vision_pool"] = list(config.model.vision_pool)
+        if config.loss.kd_weight and signature.get("teacher_identity"):
+            spec["distillation_teacher_identity"] = signature["teacher_identity"]
     return spec
 
 
@@ -92,7 +97,10 @@ def architecture(spec: dict) -> dict:
             "anchor_offsets",
         ),
     }
-    return {"kind": spec["kind"], **{key: spec[key] for key in keys[spec["kind"]]}}
+    result = {"kind": spec["kind"], **{key: spec[key] for key in keys[spec["kind"]]}}
+    if spec["kind"] == "policy":
+        result["vision_pool"] = list(spec.get("vision_pool", (1, 1)))
+    return result
 
 
 def task_loss(model, batch: dict, config: RunConfig) -> tuple[torch.Tensor, dict]:

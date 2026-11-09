@@ -1,0 +1,29 @@
+algorithm = "td3"
+# Start from an accepted SFT anchor. A DAgger export can also be selected explicitly.
+policy_checkpoint = "../../outputs/adaptation/student-target/best.pt"
+output_dir = "../../outputs/adaptation/student-td3"
+env_factory = "comma_post_training.simulator.recording:RoadEnvironment"
+steps = 20000
+episode_limit = 150
+eval_episodes = 3
+batch_size = 64
+warmup_steps = 512
+capacity = 50000
+learning_rate = 0.0001
+residual_scale = [0.15, 0.15]
+exploration_noise = 0.03
+target_noise = 0.05
+noise_clip = 0.1
+policy_delay = 2
+actor_warmup_updates = 500
+actor_bc_weight = 1.0
+actor_smoothness_weight = 0.01
+residual_penalty = 0.1
+device = "auto"
+
+[env_kwargs]
+horizon = 150
+visual_profile = "dusk"
+control_delay_steps = 1
+perturb_at_step = 25
+lateral_perturb_m = 0.8

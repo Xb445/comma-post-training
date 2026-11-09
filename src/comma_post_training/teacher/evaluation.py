@@ -15,28 +15,39 @@ class RouteMetrics:
         self.jerk_adapted = np.zeros(2)
         self.elapsed = 0.0
         self.previous = {}
+        self.teacher_expert_frames = self.teacher_frames = 0
+        self.paired_adapted_error = np.zeros(2)
+        self.teacher_elapsed = 0.0
 
     def add(self, row, scale):
-        base, adapted = (
-            np.asarray(row[key], dtype=float) for key in ("teacher_action", "adapted_action")
-        )
-        if base.shape != (2,) or adapted.shape != (2,) or not np.isfinite([base, adapted]).all():
+        adapted = np.asarray(row["adapted_action"], dtype=float)
+        base = np.asarray(row["teacher_action"], dtype=float) if "teacher_action" in row else None
+        if adapted.shape != (2,) or not np.isfinite(adapted).all():
             raise ValueError("prediction actions must be finite [2]")
+        if base is not None and (base.shape != (2,) or not np.isfinite(base).all()):
+            raise ValueError("Teacher actions must be finite [2]")
         self.frames += 1
-        self.saturated += np.abs(adapted - base) >= np.asarray(scale) * 0.99
+        if base is not None:
+            self.teacher_frames += 1
+            self.saturated += np.abs(adapted - base) >= np.asarray(scale) * 0.99
         if "expert_action" in row:
             expert = np.asarray(row["expert_action"], dtype=float)
             if expert.shape != (2,) or not np.isfinite(expert).all():
                 raise ValueError("expert action must be finite [2]")
             self.expert_frames += 1
-            self.base_error += np.abs(base - expert)
             self.adapted_error += np.abs(adapted - expert)
+            if base is not None:
+                self.teacher_expert_frames += 1
+                self.base_error += np.abs(base - expert)
+                self.paired_adapted_error += np.abs(adapted - expert)
         prior = self.previous.get(row["episode_id"])
         if prior is not None:
             seconds = row["timestamp_s"] - prior["timestamp_s"]
             if row["frame"] == prior["frame"] + 1 and 0 < seconds <= 0.3:
                 self.elapsed += seconds
-                self.jerk_base += (base - prior["teacher_action"]) ** 2 / seconds
+                if base is not None and "teacher_action" in prior:
+                    self.teacher_elapsed += seconds
+                    self.jerk_base += (base - prior["teacher_action"]) ** 2 / seconds
                 self.jerk_adapted += (adapted - prior["adapted_action"]) ** 2 / seconds
         self.previous[row["episode_id"]] = row
 
@@ -44,15 +55,24 @@ class RouteMetrics:
         return {
             "frames": self.frames,
             "expert_frames": self.expert_frames,
-            "teacher_mae_mps2": (self.base_error / self.expert_frames).tolist()
-            if self.expert_frames
+            "teacher_frames": self.teacher_frames,
+            "teacher_expert_frames": self.teacher_expert_frames,
+            "teacher_mae_mps2": (self.base_error / self.teacher_expert_frames).tolist()
+            if self.teacher_expert_frames
             else None,
             "adapted_mae_mps2": (self.adapted_error / self.expert_frames).tolist()
             if self.expert_frames
             else None,
-            "saturation_fraction": (self.saturated / self.frames).tolist() if self.frames else None,
-            "teacher_jerk_rms_mps3": np.sqrt(self.jerk_base / self.elapsed).tolist()
-            if self.elapsed
+            "paired_adapted_mae_mps2": (
+                self.paired_adapted_error / self.teacher_expert_frames
+            ).tolist()
+            if self.teacher_expert_frames
+            else None,
+            "saturation_fraction": (self.saturated / self.teacher_frames).tolist()
+            if self.teacher_frames
+            else None,
+            "teacher_jerk_rms_mps3": np.sqrt(self.jerk_base / self.teacher_elapsed).tolist()
+            if self.teacher_elapsed
             else None,
             "adapted_jerk_rms_mps3": np.sqrt(self.jerk_adapted / self.elapsed).tolist()
             if self.elapsed
@@ -70,6 +90,10 @@ def gate_residual(report: dict, *, tolerance_mps2=1e-4, min_improvement_mps2=1e-
         raise ValueError("gate tolerances must be finite and nonnegative")
     if report.get("split") != "val":
         raise ValueError("Gate 2 must use validation scenarios; keep test for final assessment")
+    if report.get("mode") == "open_loop_independent_student":
+        raise ValueError(
+            "gate-residual applies to official residual heads, not independent Students"
+        )
     routes = report.get("per_route", {})
     results = {}
     for name, metrics in routes.items():

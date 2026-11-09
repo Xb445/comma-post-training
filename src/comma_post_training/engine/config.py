@@ -12,6 +12,7 @@ class DataConfig:
     stride: int = 1
     max_gap_s: float = 0.3
     domain_mix: dict[str, float] = field(default_factory=dict)
+    require_official_teacher: bool = False
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ class ModelConfig:
     freeze_encoder: bool = False
     init_checkpoint: Path | None = None
     residual_scale: tuple[float, float] = (0.5, 0.5)
+    vision_pool: tuple[int, int] = (1, 1)
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,14 @@ class RunConfig:
     def __post_init__(self):
         if self.task not in ("policy", "compressor", "world_model", "official_residual"):
             raise ValueError("task must be policy, compressor, world_model, or official_residual")
+        if type(self.data.require_official_teacher) is not bool:
+            raise ValueError("require_official_teacher must be boolean")
+        if self.data.require_official_teacher and self.task not in ("policy", "official_residual"):
+            raise ValueError("official Teacher requirement applies to policy tasks")
+        if len(self.model.vision_pool) != 2 or any(
+            type(value) is not int or value < 1 for value in self.model.vision_pool
+        ):
+            raise ValueError("vision_pool must contain two positive integers")
         positive = [
             self.data.history,
             self.data.stride,
@@ -190,7 +200,7 @@ def load_config(path: Path) -> RunConfig:
                 if not isinstance(values[key], str) or not values[key].strip():
                     raise ValueError(f"{key} must be a nonempty path")
                 values[key] = (path.parent / values[key]).resolve()
-        for key in ("image_size", "anchor_offsets", "residual_scale"):
+        for key in ("image_size", "anchor_offsets", "residual_scale", "vision_pool"):
             if key in values:
                 values[key] = tuple(values[key])
         try:

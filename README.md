@@ -4,6 +4,10 @@
 已接入仿真数据录制、离线残差 SFT 和实时官方基座 DAgger/TD3；世界模型适配训练留待资源就绪后开展。
 既有原生策略/AE/Flow、DAgger/TD3 保留为研究基线。
 
+新环境适配已补充：空间网格 CNN/GRU Student 的官方蒸馏与 SFT、独立图像推理、源/目标数据组合、
+预热后扰动恢复 benchmark、配对 val 准入，以及可选 Critic 预热/专家/平滑约束的 Residual TD3。
+这些功能的 CPU 合成链路已有回归验证；真实新环境的性能提升仍需目标数据实验确认。
+
 已实现固定版本 ONNX Teacher adapter、显式 RGB 标定、状态队列、特征/动作缓存、
 冻结基座残差 SFT 与组合推理接口。用户最新本地摘要已报告 RTX 3090 上的官方 v2 Teacher
 60 帧 CUDA smoke、35 帧 warmup 后有效输出、500 个仿真标签与离线残差改善；DAgger/TD3 回报退化。
@@ -11,6 +15,7 @@
 
 ## 从这里开始
 
+- [新环境适配技术路线与操作规划](docs/adaptation-roadmap.md)：官方残差与 Student 的选择、逐阶段命令、恢复验收、世界模型后续工作包。
 - [完整使用手册](docs/user-guide.md)：28 章中文说明，包含现有结果复用、从零安装、数据接入、完整训练评估、配置速查和排错。
 - [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。
 - [P0–P4 仿真后训练操作手册](docs/official-sim-post-training.md)：数据录制、标定、缓存、Gate 2、实时 DAgger/TD3。

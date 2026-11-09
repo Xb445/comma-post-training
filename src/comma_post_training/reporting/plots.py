@@ -51,6 +51,41 @@ class Figures:
         for axis in np.asarray(axes).reshape(-1):
             axis.grid(alpha=0.2)
 
+    def benchmark(self, report, name):
+        rows = report["cases"]
+        labels = [row["case"]["id"] for row in rows]
+        x = np.arange(len(rows))
+        fig, axes = self.plt.subplots(2, 2, figsize=(max(12, len(rows) * 0.6), 8))
+        self.axes_style(axes)
+        metrics = (
+            ("controlled_return", "Controlled return", False),
+            ("cross_track_mae_m", "Cross-track MAE (m)", True),
+            ("speed_mae_mps", "Speed MAE (m/s)", True),
+            ("recovery_time_s", "Recovery confirmation (s); red = not recovered", True),
+        )
+        for axis, (key, title, reached) in zip(axes.flat, metrics, strict=True):
+            values = [(row["reached_state"] if reached else row).get(key) for row in rows]
+            axis.bar(x, [v if v is not None else np.nan for v in values], color="#175d85")
+            failed = [
+                i
+                for i, row in enumerate(rows)
+                if row["terminated"]
+                or key == "recovery_time_s"
+                and row["case"]["group"] == "recovery"
+                and row["reached_state"]["recovered"] is not True
+            ]
+            if failed:
+                axis.scatter(failed, [0] * len(failed), marker="x", color="#bc2115", zorder=5)
+            axis.set(title=title, xticks=x, xticklabels=labels)
+            axis.tick_params(axis="x", rotation=65, labelsize=8)
+        self.save(
+            fig,
+            name,
+            f"{report['policy']} · {report['split']} · fixed recovery suite",
+            "Measured episodes including failures; controlled metrics exclude expert warmup. "
+            "Synthetic engineering scenes do not establish real-driving performance.",
+        )
+
     def episode(self, values, name, title):
         fig, ax = self.plt.subplots(2, 2, figsize=(12, 7))
         self.axes_style(ax)
@@ -109,7 +144,7 @@ class Figures:
         metrics, events = run["metrics"], run["events"]
         fig, ax = self.plt.subplots(2, 1, figsize=(11, 7))
         self.axes_style(ax)
-        if "official_baseline" not in metrics:
+        if "algorithm" not in metrics:
             if events:
                 ax[0].plot(
                     [row["step"] for row in events],
@@ -189,11 +224,26 @@ class Figures:
             positions = np.arange(len(routes))
             for offset, key, label, color in (
                 (-0.18, "teacher_mae_mps2", "Teacher", COLORS["teacher"]),
-                (0.18, "adapted_mae_mps2", "Adapted", COLORS["adapted"]),
+                (
+                    0.18,
+                    "paired_adapted_mae_mps2",
+                    "Policy (paired when available)",
+                    COLORS["adapted"],
+                ),
             ):
+                if key == "teacher_mae_mps2" and not any(
+                    data.get(key) is not None for _, data in routes
+                ):
+                    continue
+                values = []
+                for _, data in routes:
+                    values_for_route = data.get(key)
+                    if values_for_route is None and key == "paired_adapted_mae_mps2":
+                        values_for_route = data["adapted_mae_mps2"]
+                    values.append(values_for_route[dim] if values_for_route is not None else np.nan)
                 axis.barh(
                     positions + offset,
-                    [data[key][dim] for _, data in routes],
+                    values,
                     height=0.35,
                     label=label,
                     color=color,
@@ -206,13 +256,24 @@ class Figures:
             fig,
             name,
             prediction["name"],
-            "由逐帧 predictions.jsonl 重算，按 route 和动作轴比较，保留横纵向尺度差异。",
+            "由逐帧预测重算。Teacher 与策略柱使用共同专家标签；"
+            "没有 Teacher 时显示策略全部标签，详见配对样本数。",
         )
 
     def closed_loop(self, run, name):
         items = list(run["summary"]["evaluations"].items())
         fig, ax = self.plt.subplots(1, 3, figsize=(13, 4))
-        labels = ["Official", "Offline anchor", "After online"]
+        phases = {
+            "official_baseline": "Official",
+            "initial_validation": "Offline anchor",
+            "final_validation": "After online",
+        }
+        palette = {
+            "official_baseline": "#546ee5",
+            "initial_validation": "#18794e",
+            "final_validation": "#c24e10",
+        }
+        labels = [phases[key] for key, _ in items]
         for axis, key, title in zip(
             ax,
             ("mean_controlled_return", "controlled_return_per_step", "terminated"),
@@ -220,7 +281,7 @@ class Figures:
             strict=True,
         ):
             values = [item[key] if item[key] is not None else np.nan for _, item in items]
-            axis.bar(labels, values, color=["#546ee5", "#18794e", "#c24e10"])
+            axis.bar(labels, values, color=[palette[key] for key, _ in items])
             axis.tick_params(axis="x", rotation=20)
             axis.set_title(title)
             axis.grid(axis="y", alpha=0.2)
@@ -259,7 +320,7 @@ class Figures:
                 steps,
                 0,
                 1,
-                where=[not row["teacher_warmed"] for row in events],
+                where=[not row.get("teacher_warmed", True) for row in events],
                 transform=axis.get_xaxis_transform(),
                 color="#ddd",
                 alpha=0.3,

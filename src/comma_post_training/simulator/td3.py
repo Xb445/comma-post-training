@@ -62,6 +62,7 @@ class TD3:
         self.high = torch.tensor(config.action_high, device=device)
         self.scale = torch.tensor(config.residual_scale, device=device)
         self.updates = 0
+        self.actor_updates = 0
 
     def clamp(self, action):
         return torch.maximum(self.low, torch.minimum(self.high, action))
@@ -73,6 +74,20 @@ class TD3:
     def update(self, batch: dict) -> dict:
         cfg = self.config
         batch = {key: value.to(self.device) for key, value in batch.items()}
+        if cfg.actor_bc_weight and (
+            "expert" not in batch or not torch.isfinite(batch["expert"]).all()
+        ):
+            raise ValueError("actor BC requires finite expert labels on replayed visited states")
+        if cfg.actor_smoothness_weight and (
+            "previous_action" not in batch
+            or "interval_s" not in batch
+            or not torch.isfinite(batch["previous_action"]).all()
+            or not torch.isfinite(batch["interval_s"]).all()
+            or (batch["interval_s"] <= 0).any()
+        ):
+            raise ValueError(
+                "actor smoothness requires past actual actions and positive interval_s"
+            )
         features, base = batch["features"], batch["base"]
         with torch.no_grad():
             # Noise is in acceleration units after residual scaling; next base is mandatory.
@@ -94,15 +109,41 @@ class TD3:
         self.critic_optimizer.step()
         self.updates += 1
         report = {"critic_loss": float(critic_loss.detach()), "actor_updated": False}
-        if self.updates % cfg.policy_delay == 0:
+        if self.updates <= cfg.actor_warmup_updates and self.updates % cfg.policy_delay == 0:
+            with torch.no_grad():
+                for target_parameter, parameter in zip(
+                    self.critic_target.parameters(), self.critic.parameters(), strict=True
+                ):
+                    target_parameter.lerp_(parameter, cfg.tau)
+        if (
+            self.updates > cfg.actor_warmup_updates
+            and (self.updates - cfg.actor_warmup_updates) % cfg.policy_delay == 0
+        ):
             self.critic.requires_grad_(False)
             action = self.action(features, base)
-            actor_loss = -self.critic(features, action)[0].mean()
-            actor_loss = actor_loss + cfg.residual_penalty * (action - base).square().mean()
+            q_loss = -self.critic(features, action)[0].mean()
+            anchor_loss = (action - base).square().mean()
+            bc_loss = (
+                F.mse_loss(action, batch["expert"]) if cfg.actor_bc_weight else action.new_zeros(())
+            )
+            smooth_loss = (
+                ((action - batch["previous_action"]) / batch["interval_s"].reshape(-1, 1))
+                .square()
+                .mean()
+                if cfg.actor_smoothness_weight
+                else action.new_zeros(())
+            )
+            actor_loss = (
+                q_loss
+                + cfg.residual_penalty * anchor_loss
+                + cfg.actor_bc_weight * bc_loss
+                + cfg.actor_smoothness_weight * smooth_loss
+            )
             self.actor_optimizer.zero_grad(set_to_none=True)
             actor_loss.backward()
             torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 10, error_if_nonfinite=True)
             self.actor_optimizer.step()
+            self.actor_updates += 1
             self.critic.requires_grad_(True)
             with torch.no_grad():
                 for target_model, model in (
@@ -113,7 +154,15 @@ class TD3:
                         target_model.parameters(), model.parameters(), strict=True
                     ):
                         target_parameter.lerp_(parameter, cfg.tau)
-            report.update(actor_loss=float(actor_loss.detach()), actor_updated=True)
+            report.update(
+                actor_loss=float(actor_loss.detach()),
+                actor_updated=True,
+                actor_q_loss=float(q_loss.detach()),
+                actor_bc_loss=float(bc_loss.detach()),
+                actor_smoothness_loss=float(smooth_loss.detach()),
+                actor_anchor_loss=float(anchor_loss.detach()),
+            )
+        report["actor_updates"] = self.actor_updates
         if any(
             not torch.isfinite(torch.tensor(value))
             for key, value in report.items()
@@ -131,4 +180,5 @@ class TD3:
             "actor_optimizer": self.actor_optimizer.state_dict(),
             "critic_optimizer": self.critic_optimizer.state_dict(),
             "updates": self.updates,
+            "actor_updates": self.actor_updates,
         }

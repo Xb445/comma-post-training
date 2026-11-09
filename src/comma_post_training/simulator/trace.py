@@ -43,6 +43,7 @@ class EvaluationTrace:
         warmed,
         truncated,
         diagnostics,
+        controlled=None,
     ):
         number = len(self.rows)
         images = np.rint(observation["images"][-1].numpy().transpose(0, 2, 3, 1) * 255).astype(
@@ -67,6 +68,7 @@ class EvaluationTrace:
                 "commanded_action": command,
                 "achieved_action": transition.achieved_action.tolist(),
                 "teacher_warmed": warmed,
+                "policy_controlled": warmed if controlled is None else controlled,
                 "reward": transition.reward,
                 "terminated": transition.terminated,
                 "truncated": truncated,

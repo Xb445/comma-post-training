@@ -1,6 +1,7 @@
 """Live official-base DAgger / TD3, with explicit Gate 2 and scenario provenance."""
 
 import json
+import time
 import tomllib
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -25,6 +26,7 @@ from comma_post_training.simulator.api import (
     load_environment,
 )
 from comma_post_training.simulator.config import ClosedLoopConfig
+from comma_post_training.simulator.metrics import EpisodeMetrics
 from comma_post_training.simulator.runner import Replay
 from comma_post_training.simulator.td3 import TD3
 from comma_post_training.simulator.trace import evaluation_trace, pose_of
@@ -70,6 +72,9 @@ class OfficialConfig:
     tau: float = 0.005
     policy_delay: int = 2
     residual_penalty: float = 0.001
+    actor_warmup_updates: int = 0
+    actor_bc_weight: float = 0.0
+    actor_smoothness_weight: float = 0.0
     hidden_size: int = 64
     state_features: tuple[str, ...] = ("speed_mps", "yaw_rate_radps")
     camera_names: tuple[str, ...] = ("front_narrow", "front_wide")
@@ -225,7 +230,17 @@ def _clip(action, cfg):
 
 @torch.no_grad()
 def _evaluate(
-    cfg, teacher, spec, model, *, agent=None, split="val", official_only=False, trace_dir=None
+    cfg,
+    teacher,
+    spec,
+    model,
+    *,
+    agent=None,
+    split="val",
+    official_only=False,
+    trace_dir=None,
+    metric_options=None,
+    allow_warmup_failure=False,
 ):
     device = next(model.parameters()).device
     env = load_environment(cfg.env_factory, spec, split, cfg.env_kwargs)
@@ -246,6 +261,7 @@ def _evaluate(
                 if trace:
                     trace.start(episode, seed, provenance)
                 elapsed_s = 0.0
+                reached = EpisodeMetrics(metric_options)
                 policy.reset()
                 context = policy.observe(obs, observation_id=0)
                 total, controlled, valid_steps = 0.0, 0.0, 0
@@ -263,6 +279,8 @@ def _evaluate(
                     transition = check_transition(
                         env.step(_clip(action, cfg)[0].cpu().numpy()), spec
                     )
+                    diagnostics = env.diagnostics() if hasattr(env, "diagnostics") else None
+                    reached.add(transition, controlled=context.valid, diagnostics=diagnostics)
                     if trace:
                         trace.append(
                             obs,
@@ -275,7 +293,7 @@ def _evaluate(
                             transition=transition,
                             warmed=context.valid,
                             truncated=transition.truncated or number == cfg.episode_limit,
-                            diagnostics=env.diagnostics() if hasattr(env, "diagnostics") else None,
+                            diagnostics=diagnostics,
                         )
                     elapsed_s += float(transition.observation["dt"][-1, 0])
                     obs = transition.observation
@@ -285,7 +303,7 @@ def _evaluate(
                     if transition.terminated or transition.truncated or number == cfg.episode_limit:
                         break
                     context = policy.observe(transition.observation, observation_id=number)
-                if not valid_steps:
+                if not valid_steps and not allow_warmup_failure:
                     raise ValueError(
                         "evaluation episodes end before Teacher warmup; increase the horizon"
                     )
@@ -301,6 +319,7 @@ def _evaluate(
                         "steps": number,
                         "terminated": transition.terminated,
                         "truncated": transition.truncated or number == cfg.episode_limit,
+                        "reached_state": reached.report(),
                     }
                 )
             report = {
@@ -417,6 +436,7 @@ def train_official_closed_loop(cfg: OfficialConfig, *, teacher_factory=None):
         }
         atomic_json(cfg.output_dir / "run.json", run)
         episode, episode_steps, updates, valid_count = 0, 0, 0, 0
+        training_start = time.perf_counter()
         latency = []
         for step in range(1, cfg.steps + 1):
             expert = check_action(env.expert_action())
@@ -468,6 +488,9 @@ def train_official_closed_loop(cfg: OfficialConfig, *, teacher_factory=None):
                         env_step=step,
                         episode=episode,
                         behavior_policy_update=behavior_version,
+                        expert=expert,
+                        previous_action=context.batch["past_actions"][0, -1],
+                        interval_s=float(transition.observation["dt"][-1, 0]),
                     )
                 else:
                     replay.add(
@@ -551,6 +574,7 @@ def train_official_closed_loop(cfg: OfficialConfig, *, teacher_factory=None):
             raise ValueError(
                 "no official learner updates: extend episodes/budget beyond Teacher warmup"
             )
+        training_wall_s = time.perf_counter() - training_start
         final = _evaluate(cfg, teacher, spec, model, agent=agent)
         export = {
             "format": "comma-official-online-v1",
@@ -585,6 +609,9 @@ def train_official_closed_loop(cfg: OfficialConfig, *, teacher_factory=None):
             "steps": cfg.steps,
             "valid_teacher_steps": valid_count,
             "updates": updates,
+            "actor_updates": agent.actor_updates if agent else 0,
+            "expert_queries_train": cfg.steps,
+            "training_wall_s": training_wall_s,
             "replay_size": len(replay.rows),
             "gate2": gate,
             "official_baseline": official_baseline,
@@ -619,6 +646,8 @@ def evaluate_official_closed_loop(
     teacher_factory=None,
     trace_dir: Path | None = None,
     official_only=False,
+    metric_options=None,
+    allow_warmup_failure=False,
 ):
     if official_only and checkpoint is not None:
         raise ValueError("choose official_only or a trained checkpoint, not both")
@@ -654,4 +683,6 @@ def evaluate_official_closed_loop(
         split=split,
         official_only=official_only,
         trace_dir=trace_dir,
+        metric_options=metric_options,
+        allow_warmup_failure=allow_warmup_failure,
     )

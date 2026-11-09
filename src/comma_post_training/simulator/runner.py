@@ -1,6 +1,7 @@
 """Bounded DAgger aggregation and TD3 with separate train/validation environments."""
 
 import json
+import time
 from collections import deque
 from dataclasses import asdict
 from pathlib import Path
@@ -27,7 +28,9 @@ from comma_post_training.simulator.api import (
     load_environment,
 )
 from comma_post_training.simulator.config import ClosedLoopConfig
+from comma_post_training.simulator.metrics import EpisodeMetrics
 from comma_post_training.simulator.td3 import TD3
+from comma_post_training.simulator.trace import evaluation_trace, pose_of
 
 
 class Replay:
@@ -58,7 +61,9 @@ def _features(model, observation, device, low, high):
 
 
 @torch.no_grad()
-def _evaluate(model, agent, cfg, spec, *, split="val"):
+def _evaluate(
+    model, agent, cfg, spec, *, split="val", warmup_steps=0, trace_dir=None, metric_options=None
+):
     env = load_environment(cfg.env_factory, spec, split, cfg.env_kwargs)
     results = []
     model.eval()
@@ -68,34 +73,82 @@ def _evaluate(model, agent, cfg, spec, *, split="val"):
         torch.tensor(cfg.action_high, device=device),
     )
     try:
-        for episode in range(cfg.eval_episodes):
-            # Test seeds occupy another range; the adapter also owns disjoint scenario pools.
-            seed = cfg.eval_seed + episode + (100000 if split == "test" else 0)
-            observation = check_observation(env.reset(seed=seed), spec)
-            total = 0.0
-            for step in range(1, cfg.episode_limit + 1):
-                features, base = _features(model, observation, device, low, high)
-                action = agent.action(features, base) if agent else base
-                transition = check_transition(env.step(action[0].cpu().numpy()), spec)
-                total += transition.reward
-                observation = transition.observation
-                if transition.terminated or transition.truncated or step == cfg.episode_limit:
-                    break
-            results.append(
-                {
-                    "seed": seed,
-                    "return": total,
-                    "steps": step,
-                    "terminated": transition.terminated,
-                    "truncated": transition.truncated or step == cfg.episode_limit,
-                }
-            )
-        return {
-            "environment": env.describe(),
-            "split": split,
-            "mean_return": float(np.mean([row["return"] for row in results])),
-            "episodes": results,
-        }
+        with evaluation_trace(
+            trace_dir, spec, split, "student_td3" if agent else "student"
+        ) as trace:
+            for episode in range(cfg.eval_episodes):
+                seed = cfg.eval_seed + episode + (100000 if split == "test" else 0)
+                observation = check_observation(env.reset(seed=seed), spec)
+                provenance = env.describe()
+                if trace:
+                    trace.start(episode, seed, provenance)
+                total, controlled_return, elapsed = 0.0, 0.0, 0.0
+                reached = EpisodeMetrics(metric_options)
+                for step in range(1, cfg.episode_limit + 1):
+                    controlled = step > warmup_steps
+                    expert = check_action(env.expert_action()) if trace or not controlled else None
+                    before_pose = pose_of(env) if trace else None
+                    features, base = _features(model, observation, device, low, high)
+                    action = (
+                        (agent.action(features, base) if agent else base)
+                        if controlled
+                        else torch.as_tensor(expert, device=device)[None].clamp(low, high)
+                    )
+                    transition = check_transition(env.step(action[0].cpu().numpy()), spec)
+                    diagnostics = env.diagnostics() if hasattr(env, "diagnostics") else None
+                    reached.add(transition, controlled=controlled, diagnostics=diagnostics)
+                    if trace:
+                        trace.append(
+                            observation,
+                            timestamp_s=elapsed,
+                            pose=before_pose,
+                            next_pose=pose_of(env),
+                            expert=expert.tolist(),
+                            official=None,
+                            command=action[0].cpu().tolist(),
+                            transition=transition,
+                            warmed=False,
+                            controlled=controlled,
+                            truncated=transition.truncated or step == cfg.episode_limit,
+                            diagnostics=diagnostics,
+                        )
+                    elapsed += float(transition.observation["dt"][-1, 0])
+                    total += transition.reward
+                    if controlled:
+                        controlled_return += transition.reward
+                    observation = transition.observation
+                    if transition.terminated or transition.truncated or step == cfg.episode_limit:
+                        break
+                if trace:
+                    trace.end()
+                results.append(
+                    {
+                        "seed": seed,
+                        "scenario_id": provenance.get("scenario_id"),
+                        "return": total,
+                        "controlled_return": controlled_return,
+                        "controlled_steps": reached.controlled_steps,
+                        "steps": step,
+                        "terminated": transition.terminated,
+                        "truncated": transition.truncated or step == cfg.episode_limit,
+                        "reached_state": reached.report(),
+                    }
+                )
+            report = {
+                "environment": env.describe(),
+                "split": split,
+                "mean_return": float(np.mean([row["return"] for row in results])),
+                "mean_controlled_return": float(
+                    np.mean([row["controlled_return"] for row in results])
+                ),
+                "warmup_control": "environment_expert" if warmup_steps else None,
+                "warmup_steps": warmup_steps,
+                "episodes": results,
+            }
+            if trace:
+                trace.finish(report)
+                report["trace_dir"] = str(trace_dir)
+            return report
     finally:
         env.close()
 
@@ -114,7 +167,12 @@ def _offline_windows(saved):
         max_gap_s=cfg.data.max_gap_s,
         supervision=("expert",),
     )
-    if build_spec(cfg, quality["signature"], dataset) != saved["model_spec"]:
+    expected_spec = build_spec(cfg, quality["signature"], dataset)
+    if "distillation_teacher_identity" in saved["model_spec"]:
+        expected_spec.setdefault(
+            "distillation_teacher_identity", saved["model_spec"]["distillation_teacher_identity"]
+        )
+    if expected_spec != saved["model_spec"]:
         raise ValueError("offline replay dataset contract differs from the base policy")
     return dataset
 
@@ -160,12 +218,17 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
             "model_spec": spec,
             "native_source_sha256": source_fingerprint(),
             "online_resume_supported": False,
+            "online_label_source": "expert_query_on_current_visited_state",
+            "replay_eviction": "bounded_fifo",
+            "online_source": "events.jsonl maps replay env_step to scenario/episode/policy update",
+            "offline_data_fingerprint": offline.catalogue.fingerprint if offline else None,
             "action_semantics": (
                 "critic uses final commanded acceleration; achieved acceleration stored separately"
             ),
         }
         atomic_json(cfg.output_dir / "run.json", run)
         episode_number, episode_steps, updates = 0, 0, 0
+        expert_queries, training_start = 0, time.perf_counter()
         for step in range(1, cfg.steps + 1):
             model.eval()
             with torch.no_grad():
@@ -173,12 +236,16 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
                 features, base = _features(model, observation, device, low, high)
                 if agent is None:
                     expert = check_action(env.expert_action())
+                    expert_queries += 1
                     replay.add(
                         vision=model.visual_features(batch)[0],
                         state=batch["state"][0],
                         past_actions=batch["past_actions"][0],
                         dt=batch["dt"][0],
                         label=expert,
+                        env_step=step,
+                        episode=episode_number,
+                        behavior_policy_update=updates,
                     )
                     action = (
                         torch.as_tensor(expert, device=device)[None]
@@ -187,6 +254,8 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
                     )
                     action = action.clamp(low, high)
                 else:
+                    expert = check_action(env.expert_action()) if cfg.actor_bc_weight else None
+                    expert_queries += int(expert is not None)
                     noise = torch.from_numpy(
                         rng.normal(0, cfg.exploration_noise, (1, 2)).astype(np.float32)
                     ).to(device)
@@ -208,6 +277,12 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
                         next_base=next_base[0],
                         terminated=transition.terminated,
                         truncated=truncated,
+                        previous_action=observation["past_actions"][-1],
+                        interval_s=float(transition.observation["dt"][-1, 0]),
+                        **({"expert": expert} if expert is not None else {}),
+                        env_step=step,
+                        episode=episode_number,
+                        behavior_policy_update=updates,
                     )
             event = {
                 "step": step,
@@ -217,12 +292,21 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
                 "achieved_action": transition.achieved_action.tolist(),
                 "terminated": transition.terminated,
                 "truncated": truncated,
+                "scenario_id": env.describe().get("scenario_id"),
+                "scenario_pool": env.describe().get("scenario_pool"),
+                "behavior_policy_update": updates,
+                "anchor_action": base[0].cpu().tolist(),
+                **({"expert_action": expert.tolist()} if expert is not None else {}),
             }
             if step >= cfg.warmup_steps and len(replay.rows) >= cfg.batch_size:
                 if agent is not None:
                     event.update(agent.update(replay.sample(cfg.batch_size, rng)))
                 else:
                     online = move_batch(replay.sample(cfg.batch_size, rng), device)
+                    online = {
+                        key: online[key]
+                        for key in ("vision", "state", "past_actions", "dt", "label")
+                    }
                     if offline is not None:
                         count = int(cfg.batch_size * cfg.offline_fraction)
                         if count:
@@ -263,6 +347,7 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
                 episode_number += 1
                 episode_steps = 0
                 observation = check_observation(env.reset(seed=cfg.seed + episode_number), spec)
+        training_wall_s = time.perf_counter() - training_start
         final = _evaluate(model, agent, cfg, spec)
         export = {
             "format": "comma-residual-export-v1" if agent else "comma-policy-export-v1",
@@ -293,6 +378,9 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
             "environment": env.describe(),
             "steps": cfg.steps,
             "updates": updates,
+            "actor_updates": agent.actor_updates if agent else 0,
+            "expert_queries_train": expert_queries,
+            "training_wall_s": training_wall_s,
             "replay_size": len(replay.rows),
             "base_frozen": bool(agent),
             "encoder_frozen": True,
@@ -310,7 +398,15 @@ def train_closed_loop(cfg: ClosedLoopConfig) -> dict:
         env.close()
 
 
-def evaluate_closed_loop(cfg: ClosedLoopConfig, checkpoint: Path, *, split: str = "test") -> dict:
+def evaluate_closed_loop(
+    cfg: ClosedLoopConfig,
+    checkpoint: Path,
+    *,
+    split: str = "test",
+    warmup_steps=0,
+    trace_dir=None,
+    metric_options=None,
+) -> dict:
     device = select_device(cfg.device)
     torch.set_num_threads(cfg.num_threads)
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -331,4 +427,13 @@ def evaluate_closed_loop(cfg: ClosedLoopConfig, checkpoint: Path, *, split: str 
         agent = TD3(spec["hidden_size"], cfg, device)
         agent.actor.load_state_dict(saved["residual_state"], strict=True)
         agent.actor.eval()
-    return _evaluate(model, agent, cfg, spec, split=split)
+    return _evaluate(
+        model,
+        agent,
+        cfg,
+        spec,
+        split=split,
+        warmup_steps=warmup_steps,
+        trace_dir=trace_dir,
+        metric_options=metric_options,
+    )

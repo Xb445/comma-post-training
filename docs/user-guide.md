@@ -6,6 +6,10 @@
 适用平台：Linux、Python 3.12；GPU 示例对应用户已验证的 RTX 3090、CUDA PyTorch 环境。
 后续版本若有接口变化，以当前 checkout 的 `--help` 和配置加载器为准。
 
+**新环境适配增补**：见 [监督微调 → 闭环纠错 → 世界模型技术路线](adaptation-roadmap.md)。
+该文包含新增的可训练空间 Student、独立预测、数据审计/组合、固定扰动 benchmark、
+配对 val 准入和保守 TD3 配置；本手册原有官方冻结基座流程继续适用。
+
 ## 目录
 
 1. [项目定位与当前能力](#1-项目定位与当前能力)
@@ -1691,6 +1695,11 @@ gate-residual 的阈值参数为 `--tolerance-mps2` 与 `--min-improvement-mps2`
 | import-npz | `--input --metadata --output-dir` | 导入一个已对齐 episode |
 | build-dataset | `--root --revision --kind` | 注册多个原生 episode |
 | validate-dataset | `path` | 校验标准 episode 训练数据 |
+| audit-dataset | `--manifest --stage --history --future-steps --require-official-teacher --output` | Student/world 数据结构就绪审计；不就绪返回 1 |
+| combine-datasets | `--manifest` 可重复、`--output-dir --revision` | 组合源/目标域只读引用，拒绝重复与 route 泄漏 |
+| predict-policy | `--manifest --checkpoint --output-dir --split --device` | Student 无 ONNX 独立预测与逐 route 指标 |
+| benchmark | `--suite --checkpoint --official-config --official-only --record-traces --output-dir --device` | 固定程序化道路场景与预热后恢复评测 |
+| compare-benchmarks | `--baseline --candidate --output` | 配对 val 模型选择；失败保留报告并返回 1 |
 | train | `--config` | 离线训练；支持 manifest/output/max-steps/device 覆盖及 init/resume |
 | evaluate-checkpoint | `--checkpoint --manifest --split --device` | 离线检查点评估 |
 | train-official | `--config --steps --output-dir --engineering-only` | 官方基座在线后训练 |

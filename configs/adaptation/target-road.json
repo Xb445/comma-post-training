@@ -1,0 +1,7 @@
+{
+  "visual_profile": "dusk",
+  "control_delay_steps": 1,
+  "initial_lateral_offset_m": 0.8,
+  "initial_heading_error_rad": 0.05,
+  "horizon": 1000
+}

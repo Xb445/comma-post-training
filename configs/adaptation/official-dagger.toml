@@ -1,0 +1,25 @@
+algorithm = "dagger"
+teacher_model = "../../models/big_driving_supercombo.onnx"
+teacher_provider = "cuda"
+init_checkpoint = "../../outputs/adaptation/official-target/best.pt"
+gate2_report = "../../outputs/adaptation/official-target-val/gate2.json"
+offline_manifest = "../../data/local/target-teacher/manifest.json"
+output_dir = "../../outputs/adaptation/official-dagger"
+steps = 5000
+episode_limit = 150
+eval_episodes = 3
+batch_size = 32
+warmup_steps = 128
+capacity = 20000
+learning_rate = 0.0001
+offline_fraction = 0.7
+expert_mix = 0.2
+residual_penalty = 0.01
+device = "cpu"
+
+[env_kwargs]
+horizon = 150
+visual_profile = "dusk"
+control_delay_steps = 1
+perturb_at_step = 25
+lateral_perturb_m = 0.8

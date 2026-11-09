@@ -103,11 +103,12 @@ def load_run(path: Path):
         "environment_kind": provenance.get("environment", {}).get("kind"),
         "dataset_kind": provenance.get("data", {}).get("kind"),
     }
-    if "official_baseline" in metrics:
+    if "algorithm" in metrics and "episodes" in metrics.get("final_validation", {}):
         summary["algorithm"] = metrics["algorithm"]
         summary["evaluations"] = {
             name: evaluation_summary(metrics[name])
             for name in ("official_baseline", "initial_validation", "final_validation")
+            if name in metrics
         }
         before, after = (
             summary["evaluations"][name] for name in ("initial_validation", "final_validation")
@@ -142,6 +143,8 @@ def load_run(path: Path):
     summary["teacher_identity"] = metrics.get("teacher_identity")
     summary["steps"] = metrics.get("steps")
     summary["updates"] = metrics.get("updates")
+    summary["actor_updates"] = metrics.get("actor_updates")
+    summary["expert_queries_train"] = metrics.get("expert_queries_train")
     return {"summary": summary, "metrics": metrics, "provenance": provenance, "events": events}
 
 
@@ -206,6 +209,8 @@ def load_predictions(path: Path, references=None):
         raise ValueError(f"{path}: empty predictions.jsonl")
     routes, seen = {}, set()
     for row in rows:
+        if "policy_action" in row:
+            row["adapted_action"] = row["policy_action"]
         if not isinstance(row.get("timestamp_s"), (float, int)) or not math.isfinite(
             row["timestamp_s"]
         ):

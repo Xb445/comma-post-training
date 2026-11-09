@@ -1,0 +1,15 @@
+{
+  "browser": "155.0.8059.79",
+  "episodes": 6,
+  "figures": 22,
+  "benchmark_rows": 12,
+  "evaluation_rows": 6,
+  "cameras": 2,
+  "independent_student_no_teacher_curve": "passed",
+  "expert_to_policy_interval": "passed",
+  "slider_playback_and_episode_switch": "passed",
+  "desktop_and_mobile": "passed",
+  "page_errors": [],
+  "external_http_requests": 0,
+  "scope": "CPU synthetic ONNX fixture and procedural road acceptance report"
+}

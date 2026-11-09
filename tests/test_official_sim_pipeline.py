@@ -14,6 +14,7 @@ from comma_post_training.engine.checkpoints import file_sha256, load_checkpoint
 from comma_post_training.engine.config import DataConfig, ModelConfig, RunConfig, TrainingConfig
 from comma_post_training.engine.trainer import train
 from comma_post_training.simulator import official_runner
+from comma_post_training.simulator.benchmark import run_benchmark
 from comma_post_training.simulator.official_runner import (
     OfficialConfig,
     evaluate_official_closed_loop,
@@ -206,6 +207,10 @@ def online_config(pipeline, output, algorithm="dagger"):
 @pytest.mark.parametrize("algorithm", ["dagger", "td3"])
 def test_live_learning_provenance_reset_and_checkpoint_reload(pipeline, tmp_path, algorithm):
     config = online_config(pipeline, tmp_path / algorithm, algorithm)
+    if algorithm == "td3":
+        config = replace(
+            config, actor_warmup_updates=2, actor_bc_weight=1.0, actor_smoothness_weight=0.01
+        )
     report = train_official_closed_loop(config, teacher_factory=pipeline["factory"])
     assert report["updates"] > 0 and report["replay_size"] == config.capacity
     assert report["gate2"]["bypassed"] and not report["gate2"]["passed"]
@@ -239,12 +244,82 @@ def test_live_learning_provenance_reset_and_checkpoint_reload(pipeline, tmp_path
             torch.testing.assert_close(final["model_state"][key], value, rtol=0, atol=0)
         assert "td3_actor_state" in final
         assert any(row.get("actor_updated") for row in events)
+        assert report["actor_updates"] == sum(bool(row.get("actor_updated")) for row in events)
+        np.testing.assert_allclose(
+            replay["expert"][0], by_step[int(replay["env_step"][0])]["expert_action"]
+        )
         assert replay["truncated"].any() and not replay["terminated"].all()
     evaluated = evaluate_official_closed_loop(
         config, config.output_dir / "final.pt", split="val", teacher_factory=pipeline["factory"]
     )
     assert evaluated["episodes"] == report["final_validation"]["episodes"]
     assert file_sha256(pipeline["graph"]) == pipeline["asset_hash"]
+
+
+def test_official_benchmark_reuses_teacher_and_preserves_post_warmup_disturbance(
+    pipeline, tmp_path
+):
+    config = tmp_path / "official.toml"
+    config.write_text(
+        f'algorithm = "td3"\nteacher_model = "{pipeline["graph"]}"\n'
+        f'init_checkpoint = "{pipeline["checkpoint"]}"\noutput_dir = "unused"\n'
+    )
+    suite = tmp_path / "suite.json"
+    suite.write_text(
+        json.dumps(
+            {
+                "format": "comma-recovery-suite-v1",
+                "name": "fixture-only",
+                "split": "val",
+                "horizon": 35,
+                "warmup_steps": 25,
+                "cases": [
+                    {
+                        "id": f"lateral-{seed}",
+                        "scenario": "lateral",
+                        "group": "recovery",
+                        "domain": "target",
+                        "seed": seed,
+                        "env_kwargs": {"perturb_at_step": 25, "lateral_perturb_m": 0.8},
+                    }
+                    for seed in (1, 2, 3)
+                ],
+            }
+        )
+    )
+    calls = []
+
+    def factory():
+        calls.append(1)
+        return pipeline["factory"]()
+
+    report = run_benchmark(
+        suite,
+        tmp_path / "benchmark",
+        official_config=config,
+        official_only=True,
+        teacher_factory=factory,
+    )
+    assert len(calls) == 1
+    assert report["teacher_identity"]["kind"] == "synthetic_fixture"
+    assert report["runtime_teacher_loaded"] and report["engineering_backend"]
+    assert all(row["controlled_steps"] == 10 for row in report["cases"])
+    assert all(row["reached_state"]["perturbation_observed"] for row in report["cases"])
+    failed_suite = json.loads(suite.read_text())
+    failed_suite["cases"] = [failed_suite["cases"][0]]
+    failed_suite["cases"][0]["env_kwargs"]["initial_lateral_offset_m"] = 8.0
+    suite.write_text(json.dumps(failed_suite))
+    failed = run_benchmark(
+        suite,
+        tmp_path / "warmup-failure",
+        official_config=config,
+        official_only=True,
+        teacher_factory=factory,
+    )
+    assert failed["cases"][0]["controlled_steps"] == 0
+    assert failed["cases"][0]["terminated"]
+    assert failed["summary"]["recovery"]["recovery_rate"] == 0.0
+    assert failed["summary"]["recovery"]["recovery_cases"] == 1
 
 
 def test_gate_rejects_missing_failed_or_different_checkpoint(pipeline, tmp_path):
