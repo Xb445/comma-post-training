@@ -1,5 +1,8 @@
 # 自有数据 episode 合同：comma-episodes-v1
 
+开始采集目标环境数据前，先阅读 [数据需求与交付规范](target-environment-data-requirements.md)，
+其中按当前 SFT、闭环后训练和后续世界模型区分必需信息、采集建议与审计门槛。
+
 采用驾驶/机器人数据中常见的 episode、逐帧时间戳、观测/动作分离和整体任务拆分方式。
 磁盘使用普通 JSON + NPY / 图片路径，便于 NumPy/PyTorch 读取，避免绑定特定数据库。
 这是本项目的中间格式，不声称兼容原生 LeRobot、RLDS 或 openpilot 文件。

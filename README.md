@@ -15,6 +15,7 @@
 
 ## 从这里开始
 
+- [目标环境数据需求与交付规范](docs/target-environment-data-requirements.md)：当前 SFT 必需字段、相机/动作/同步要求、JSON 样例、闭环与世界模型扩展和验收命令。
 - [新环境适配技术路线与操作规划](docs/adaptation-roadmap.md)：官方残差与 Student 的选择、逐阶段命令、恢复验收、世界模型后续工作包。
 - [完整使用手册](docs/user-guide.md)：28 章中文说明，包含现有结果复用、从零安装、数据接入、完整训练评估、配置速查和排错。
 - [官方 Teacher 与冻结基座后训练](docs/official-teacher-first.md)：当前主线、命令、真实验收与阻塞。

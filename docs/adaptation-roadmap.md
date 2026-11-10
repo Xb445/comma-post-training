@@ -45,6 +45,8 @@ flowchart TD
 
 ### A0 数据与环境：先建立可复现问题
 
+采集字段、时序/标定、专家来源和首批数据验收见 [目标环境数据需求与交付规范](target-environment-data-requirements.md)。
+
 数据统一为 comma-episodes-v1，动作单位 m/s²、FRD 坐标，明确 expert/commanded/executed。
 按真实 route/session 和场景隔离 train/val/test；源域与目标域都保留固定评估集合。
 Teacher 仍按 5 Hz，保留实际相机标定。原始 steer/throttle 由 adapter 转换，不直接当加速度。
